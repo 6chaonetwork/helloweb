@@ -1,0 +1,29 @@
+import { randomUUID } from "crypto";
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { buildQrLoginUrl, getChallengeTtlSeconds } from "@/lib/qr-login";
+
+export async function POST(request: Request) {
+  const body = await request.json().catch(() => ({}));
+  const ttlSeconds = typeof body.ttlSeconds === "number" && body.ttlSeconds > 0 ? body.ttlSeconds : getChallengeTtlSeconds();
+  const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
+  const qrToken = randomUUID();
+
+  const challenge = await prisma.qrLoginChallenge.create({
+    data: {
+      qrToken,
+      expiresAt,
+      deviceId: body.deviceId ?? null,
+    },
+  });
+
+  return NextResponse.json({
+    challenge: {
+      id: challenge.id,
+      qrToken: challenge.qrToken,
+      status: challenge.status,
+      expiresAt: challenge.expiresAt,
+      qrUrl: buildQrLoginUrl(challenge.qrToken),
+    },
+  });
+}

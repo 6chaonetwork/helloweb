@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum DeviceStatus {
+  ACTIVE
+  REVOKED
+  PENDING
+}
+
+enum QrLoginChallengeStatus {
+  PENDING
+  APPROVED
+  EXPIRED
+  CONSUMED
+  CANCELED
+}
+
+enum ChannelEnvironment {
+  DEV
+  STAGING
+  PROD
+}
+
+model User {
+  id              String             @id @default(cuid())
+  email           String             @unique
+  emailVerifiedAt DateTime?
+  passwordHash    String?
+  name            String?
+  avatarUrl       String?
+  role            UserRole           @default(USER)
+  status          UserStatus         @default(ACTIVE)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  devices        Device[]
+  loginCodes     LoginCode[]
+  qrChallenges   QrLoginChallenge[]
+  auditLogs      AuditLog[]
+}
+
+model Device {
+  id            String       @id @default(cuid())
+  userId        String?
+  deviceName    String
+  deviceType    String?
+  platform      String?
+  clientVersion String?
+  status        DeviceStatus @default(PENDING)
+  lastSeenAt    DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  user         User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  loginCodes   LoginCode[]
+  qrChallenges QrLoginChallenge[]
+
+  @@index([userId])
+}
+
+model LoginCode {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  userId    String?
+  deviceId  String?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  device Device? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([deviceId])
+}
+
+model QrLoginChallenge {
+  id          String                 @id @default(cuid())
+  userId      String?
+  deviceId    String?
+  status      QrLoginChallengeStatus @default(PENDING)
+  qrToken     String                 @unique
+  expiresAt   DateTime
+  approvedAt  DateTime?
+  consumedAt  DateTime?
+  canceledAt  DateTime?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  device Device? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([deviceId])
+  @@index([status])
+}
+
+model ChannelConfig {
+  id                     String             @id @default(cuid())
+  channelType            String             @unique
+  appId                  String?
+  appSecretEncrypted     String?
+  callbackUrl            String?
+  qrLoginBaseUrl         String?
+  signingSecretEncrypted String?
+  webhookUrl             String?
+  verifyToken            String?
+  allowedPlatforms       Json?
+  deviceBindingMode      String?            @default("OPTIONAL")
+  challengeTtlSeconds    Int?               @default(300)
+  pollingIntervalMs      Int?               @default(2000)
+  enabled                Boolean            @default(false)
+  environment            ChannelEnvironment @default(DEV)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  userId       String?
+  action       String
+  targetType   String?
+  targetId     String?
+  metadataJson Json?
+  createdAt    DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([targetType, targetId])
+}
