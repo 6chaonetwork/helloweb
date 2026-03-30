@@ -5,7 +5,10 @@ import { buildQrLoginUrl } from "@/lib/qr-login";
 import { buildCorsPreflightResponse, withCors } from "@/lib/cors";
 
 function normalizeStatus(challenge: { status: QrLoginChallengeStatus; expiresAt: Date }) {
-  if (challenge.status === QrLoginChallengeStatus.PENDING && challenge.expiresAt.getTime() <= Date.now()) {
+  if (
+    [QrLoginChallengeStatus.PENDING, QrLoginChallengeStatus.SCANNED, QrLoginChallengeStatus.FOLLOWED].includes(challenge.status) &&
+    challenge.expiresAt.getTime() <= Date.now()
+  ) {
     return QrLoginChallengeStatus.EXPIRED;
   }
 
@@ -52,6 +55,11 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
         expiresAt: challenge.expiresAt,
         approvedAt: challenge.approvedAt,
         consumedAt: challenge.consumedAt,
+        scannedAt: challenge.scannedAt,
+        followedAt: challenge.followedAt,
+        wechatOpenId: challenge.wechatOpenId,
+        lastWechatEvent: challenge.lastWechatEvent,
+        lastWechatEventAt: challenge.lastWechatEventAt,
         qrUrl: challenge.qrUrl || persistedFallbackQrUrl,
         qrTicket: challenge.qrTicket,
         qrSource: challenge.qrSource || "fallback",

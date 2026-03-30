@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { NextResponse } from "next/server";
-import { QrLoginChallengeStatus } from "@prisma/client";
+import { QrLoginChallengeStatus, UserStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { parseWechatXml } from "@/lib/wechat-xml";
 
@@ -33,9 +33,54 @@ function extractChallengeToken(eventKey?: string | null, content?: string | null
   return null;
 }
 
-async function approveChallengeByToken(token: string, openId?: string | null, eventKey?: string | null) {
+function buildPlaceholderEmail(openId: string) {
+  return `${openId}@wechat.local`;
+}
+
+async function upsertWechatUser(input: {
+  openId: string;
+  isFollowing: boolean;
+  event: string | null;
+}) {
+  const now = new Date();
+  const existing = await prisma.user.findUnique({
+    where: { wechatOpenId: input.openId },
+  });
+
+  if (existing) {
+    return prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        wechatFollowed: input.isFollowing ? true : existing.wechatFollowed,
+        wechatFollowedAt: input.isFollowing ? existing.wechatFollowedAt || now : existing.wechatFollowedAt,
+        lastWechatEvent: input.event,
+        lastWechatEventAt: now,
+      },
+    });
+  }
+
+  return prisma.user.create({
+    data: {
+      email: buildPlaceholderEmail(input.openId),
+      name: `微信用户-${input.openId.slice(-6)}`,
+      wechatOpenId: input.openId,
+      wechatFollowed: input.isFollowing,
+      wechatFollowedAt: input.isFollowing ? now : null,
+      lastWechatEvent: input.event,
+      lastWechatEventAt: now,
+      status: UserStatus.ACTIVE,
+    },
+  });
+}
+
+async function processChallengeEvent(input: {
+  token: string;
+  openId?: string | null;
+  event?: string | null;
+  eventKey?: string | null;
+}) {
   const challenge = await prisma.qrLoginChallenge.findUnique({
-    where: { qrToken: token },
+    where: { qrToken: input.token },
   });
 
   if (!challenge) {
@@ -51,31 +96,69 @@ async function approveChallengeByToken(token: string, openId?: string | null, ev
     return { ok: false as const, reason: "challenge_expired" };
   }
 
-  const updated = await prisma.qrLoginChallenge.update({
+  const normalizedEvent = (input.event || "").toLowerCase();
+  const isSubscribe = normalizedEvent === "subscribe";
+  const isScan = normalizedEvent === "scan";
+  const openId = input.openId || null;
+  const now = new Date();
+
+  let userId: string | null = challenge.userId;
+  if (openId) {
+    const user = await upsertWechatUser({
+      openId,
+      isFollowing: isSubscribe || isScan,
+      event: input.event || null,
+    });
+    userId = user.id;
+  }
+
+  let nextStatus = challenge.status;
+  if (isSubscribe) {
+    nextStatus = QrLoginChallengeStatus.FOLLOWED;
+  } else if (isScan) {
+    nextStatus = QrLoginChallengeStatus.SCANNED;
+  }
+
+  const intermediate = await prisma.qrLoginChallenge.update({
+    where: { id: challenge.id },
+    data: {
+      userId,
+      status: nextStatus,
+      wechatOpenId: openId ?? challenge.wechatOpenId,
+      wechatEventKey: input.eventKey ?? challenge.wechatEventKey,
+      lastWechatEvent: input.event ?? challenge.lastWechatEvent,
+      lastWechatEventAt: now,
+      scannedAt: isScan || isSubscribe ? challenge.scannedAt || now : challenge.scannedAt,
+      followedAt: isSubscribe ? challenge.followedAt || now : challenge.followedAt,
+    },
+  });
+
+  const approved = await prisma.qrLoginChallenge.update({
     where: { id: challenge.id },
     data: {
       status: QrLoginChallengeStatus.APPROVED,
-      approvedAt: new Date(),
-      wechatOpenId: openId ?? challenge.wechatOpenId,
-      wechatEventKey: eventKey ?? challenge.wechatEventKey,
+      approvedAt: challenge.approvedAt || now,
     },
   });
 
   await prisma.auditLog.create({
     data: {
-      userId: null,
+      userId: userId ?? null,
       action: "wechat_callback.challenge_approved",
       targetType: "QrLoginChallenge",
-      targetId: updated.id,
+      targetId: approved.id,
       metadataJson: {
-        qrToken: updated.qrToken,
-        wechatOpenId: updated.wechatOpenId,
-        wechatEventKey: updated.wechatEventKey,
+        qrToken: approved.qrToken,
+        wechatOpenId: approved.wechatOpenId,
+        wechatEventKey: approved.wechatEventKey,
+        event: input.event,
+        intermediateStatus: intermediate.status,
+        finalStatus: approved.status,
       },
     },
   });
 
-  return { ok: true as const, challenge: updated };
+  return { ok: true as const, challenge: approved };
 }
 
 export async function GET(request: Request) {
@@ -115,7 +198,12 @@ export async function POST(request: Request) {
 
   let result: { ok: boolean; reason?: string } | null = null;
   if (challengeToken) {
-    result = await approveChallengeByToken(challengeToken, parsed.fromUserName, parsed.eventKey);
+    result = await processChallengeEvent({
+      token: challengeToken,
+      openId: parsed.fromUserName,
+      event: parsed.event,
+      eventKey: parsed.eventKey,
+    });
   }
 
   await prisma.auditLog.create({
