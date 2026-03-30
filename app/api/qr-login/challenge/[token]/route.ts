@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { QrLoginChallengeStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { buildQrLoginUrl } from "@/lib/qr-login";
+import { buildCorsPreflightResponse, withCors } from "@/lib/cors";
 
 function normalizeStatus(challenge: { status: QrLoginChallengeStatus; expiresAt: Date }) {
   if (challenge.status === QrLoginChallengeStatus.PENDING && challenge.expiresAt.getTime() <= Date.now()) {
@@ -11,7 +12,12 @@ function normalizeStatus(challenge: { status: QrLoginChallengeStatus; expiresAt:
   return challenge.status;
 }
 
-export async function GET(_: Request, context: { params: Promise<{ token: string }> }) {
+export function OPTIONS(request: Request) {
+  return buildCorsPreflightResponse(request.headers.get("origin"));
+}
+
+export async function GET(request: Request, context: { params: Promise<{ token: string }> }) {
+  const origin = request.headers.get("origin");
   const { token } = await context.params;
 
   const challenge = await prisma.qrLoginChallenge.findUnique({
@@ -19,7 +25,7 @@ export async function GET(_: Request, context: { params: Promise<{ token: string
   });
 
   if (!challenge) {
-    return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
+    return withCors(NextResponse.json({ error: "Challenge not found" }, { status: 404 }), origin);
   }
 
   const normalizedStatus = normalizeStatus(challenge);
@@ -31,15 +37,18 @@ export async function GET(_: Request, context: { params: Promise<{ token: string
     });
   }
 
-  return NextResponse.json({
-    challenge: {
-      id: challenge.id,
-      qrToken: challenge.qrToken,
-      status: normalizedStatus,
-      expiresAt: challenge.expiresAt,
-      approvedAt: challenge.approvedAt,
-      consumedAt: challenge.consumedAt,
-      qrUrl: buildQrLoginUrl(challenge.qrToken),
-    },
-  });
+  return withCors(
+    NextResponse.json({
+      challenge: {
+        id: challenge.id,
+        qrToken: challenge.qrToken,
+        status: normalizedStatus,
+        expiresAt: challenge.expiresAt,
+        approvedAt: challenge.approvedAt,
+        consumedAt: challenge.consumedAt,
+        qrUrl: buildQrLoginUrl(challenge.qrToken),
+      },
+    }),
+    origin,
+  );
 }

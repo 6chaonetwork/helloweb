@@ -161,10 +161,10 @@ export default function Home() {
 
             <div className="mt-7 flex flex-wrap gap-3.5">
               <a
-                href="http://203.195.157.103:3000/"
+                href="https://helloclaw.top"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-linear-to-br from-white to-[#cfe0ff] px-5 font-bold text-[#08101f] transition hover:-translate-y-0.5"
               >
-                当前预览地址
+                官方站点
                 <ArrowRight size={16} />
               </a>
               <Link

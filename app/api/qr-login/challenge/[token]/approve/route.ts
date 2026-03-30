@@ -2,11 +2,17 @@ import { NextResponse } from "next/server";
 import { QrLoginChallengeStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createAuditLog, requireAdmin } from "@/lib/admin";
+import { buildCorsPreflightResponse, withCors } from "@/lib/cors";
 
-export async function POST(_: Request, context: { params: Promise<{ token: string }> }) {
+export function OPTIONS(request: Request) {
+  return buildCorsPreflightResponse(request.headers.get("origin"));
+}
+
+export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
+  const origin = request.headers.get("origin");
   const admin = await requireAdmin();
   if (!admin.ok) {
-    return NextResponse.json({ error: admin.error }, { status: admin.status });
+    return withCors(NextResponse.json({ error: admin.error }, { status: admin.status }), origin);
   }
 
   const { token } = await context.params;
@@ -15,7 +21,7 @@ export async function POST(_: Request, context: { params: Promise<{ token: strin
   });
 
   if (!challenge) {
-    return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
+    return withCors(NextResponse.json({ error: "Challenge not found" }, { status: 404 }), origin);
   }
 
   if (challenge.expiresAt.getTime() <= Date.now()) {
@@ -24,7 +30,7 @@ export async function POST(_: Request, context: { params: Promise<{ token: strin
       data: { status: QrLoginChallengeStatus.EXPIRED },
     });
 
-    return NextResponse.json({ challenge: expired, error: "Challenge expired" }, { status: 409 });
+    return withCors(NextResponse.json({ challenge: expired, error: "Challenge expired" }, { status: 409 }), origin);
   }
 
   const approved = await prisma.qrLoginChallenge.update({
@@ -51,5 +57,5 @@ export async function POST(_: Request, context: { params: Promise<{ token: strin
     },
   });
 
-  return NextResponse.json({ challenge: approved });
+  return withCors(NextResponse.json({ challenge: approved }), origin);
 }
