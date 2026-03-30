@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireAdminPageSession } from "@/lib/require-admin-page-session";
 
 const cards = [
   {
@@ -19,15 +20,24 @@ const cards = [
   },
 ];
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const session = await requireAdminPageSession();
+
   return (
     <main className="min-h-screen bg-[#050816] px-6 py-10 text-white">
       <div className="mx-auto max-w-6xl">
         <p className="m-0 text-xs uppercase tracking-[0.3em] text-white/45">Dashboard</p>
-        <h1 className="mb-3 mt-4 text-4xl font-semibold">HelloClaw Control Center</h1>
-        <p className="max-w-3xl text-white/68">
-          这是新的管理骨架。当前重点是先把 channel settings 与 QR login challenge 的后端/API 重新跑起来。
-        </p>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="mb-3 text-4xl font-semibold">HelloClaw Control Center</h1>
+            <p className="max-w-3xl text-white/68">
+              这是新的管理骨架。当前重点是先把 channel settings 与 QR login challenge 的后端/API 重新跑起来。
+            </p>
+          </div>
+          <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/72">
+            已登录：admin {session.username}
+          </div>
+        </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-3">
           {cards.map((card) => {

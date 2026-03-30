@@ -1,8 +1,10 @@
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
+import { readAdminSessionCookieValue, getAdminSessionCookieName } from "@/lib/admin-auth";
 import type { Prisma } from "@prisma/client";
 
 function isAdminPreviewEnabled() {
-  return process.env.ADMIN_PREVIEW_BYPASS === "1" || process.env.NODE_ENV !== "production";
+  return process.env.ADMIN_PREVIEW_BYPASS === "1";
 }
 
 export async function requireAdmin() {
@@ -13,6 +15,20 @@ export async function requireAdmin() {
         id: "preview-admin",
         role: "ADMIN",
         email: "preview@local",
+      },
+    };
+  }
+
+  const cookieStore = await cookies();
+  const session = readAdminSessionCookieValue(cookieStore.get(getAdminSessionCookieName())?.value);
+
+  if (session) {
+    return {
+      ok: true as const,
+      user: {
+        id: session.username,
+        role: "ADMIN",
+        email: `${session.username}@local`,
       },
     };
   }
