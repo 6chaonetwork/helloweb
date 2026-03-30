@@ -44,19 +44,25 @@ export async function PATCH(request: Request) {
   const body = await request.json();
   const existing = await getOrCreateChannelConfig();
 
+  const environment =
+    typeof body.environment === "string" && Object.values(ChannelEnvironment).includes(body.environment as ChannelEnvironment)
+      ? (body.environment as ChannelEnvironment)
+      : existing.environment;
+
   const config = await prisma.channelConfig.update({
     where: { id: existing.id },
     data: {
+      originalId: body.originalId ?? existing.originalId,
       appId: body.appId ?? existing.appId,
+      appSecretEncrypted: body.appSecretEncrypted ?? existing.appSecretEncrypted,
       callbackUrl: body.callbackUrl ?? existing.callbackUrl,
       qrLoginBaseUrl: body.qrLoginBaseUrl ?? existing.qrLoginBaseUrl,
+      signingSecretEncrypted: body.signingSecretEncrypted ?? existing.signingSecretEncrypted,
+      encodingAesKeyEncrypted: body.encodingAesKeyEncrypted ?? existing.encodingAesKeyEncrypted,
       webhookUrl: body.webhookUrl ?? existing.webhookUrl,
       verifyToken: body.verifyToken ?? existing.verifyToken,
       enabled: typeof body.enabled === "boolean" ? body.enabled : existing.enabled,
-      environment:
-        body.environment && Object.values(ChannelEnvironment).includes(body.environment)
-          ? body.environment
-          : existing.environment,
+      environment,
       allowedPlatforms: Array.isArray(body.allowedPlatforms) ? body.allowedPlatforms : existing.allowedPlatforms,
       deviceBindingMode: body.deviceBindingMode ?? existing.deviceBindingMode,
       challengeTtlSeconds:
@@ -75,6 +81,10 @@ export async function PATCH(request: Request) {
       channelType: config.channelType,
       enabled: config.enabled,
       environment: config.environment,
+      originalId: config.originalId,
+      appId: config.appId,
+      callbackUrl: config.callbackUrl,
+      qrLoginBaseUrl: config.qrLoginBaseUrl,
     },
   });
 

@@ -115,11 +115,13 @@ model QrLoginChallenge {
 model ChannelConfig {
   id                     String             @id @default(cuid())
   channelType            String             @unique
+  originalId             String?
   appId                  String?
   appSecretEncrypted     String?
   callbackUrl            String?
   qrLoginBaseUrl         String?
   signingSecretEncrypted String?
+  encodingAesKeyEncrypted String?
   webhookUrl             String?
   verifyToken            String?
   allowedPlatforms       Json?
