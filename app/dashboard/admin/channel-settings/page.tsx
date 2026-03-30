@@ -1,5 +1,6 @@
 import { requireAdminPageSession } from "@/lib/require-admin-page-session";
 import { ChannelSettingsForm } from "./channel-settings-form";
+import { QrLoginDebugPanel } from "./qr-login-debug-panel";
 
 export default async function AdminChannelSettingsPage() {
   const session = await requireAdminPageSession();
@@ -20,8 +21,9 @@ export default async function AdminChannelSettingsPage() {
           </div>
         </div>
 
-        <div className="mt-8">
+        <div className="mt-8 grid gap-6">
           <ChannelSettingsForm />
+          <QrLoginDebugPanel />
         </div>
       </div>
     </main>
