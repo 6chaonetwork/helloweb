@@ -8,10 +8,12 @@ export async function POST(request: Request) {
   const ttlSeconds = typeof body.ttlSeconds === "number" && body.ttlSeconds > 0 ? body.ttlSeconds : getChallengeTtlSeconds();
   const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
   const qrToken = randomUUID();
+  const eventKey = `qrlogin:${qrToken}`;
 
   const challenge = await prisma.qrLoginChallenge.create({
     data: {
       qrToken,
+      wechatEventKey: eventKey,
       expiresAt,
       deviceId: body.deviceId ?? null,
     },
@@ -21,6 +23,7 @@ export async function POST(request: Request) {
     challenge: {
       id: challenge.id,
       qrToken: challenge.qrToken,
+      eventKey,
       status: challenge.status,
       expiresAt: challenge.expiresAt,
       qrUrl: buildQrLoginUrl(challenge.qrToken),
