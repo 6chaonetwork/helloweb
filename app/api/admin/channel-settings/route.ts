@@ -73,11 +73,16 @@ export async function PATCH(request: Request) {
   });
 
   await createAuditLog({
-    userId: admin.user.id,
+    userId: null,
     action: "channel_config.updated",
     targetType: "ChannelConfig",
     targetId: config.id,
     metadataJson: {
+      actor: {
+        id: admin.user.id,
+        email: admin.user.email,
+        role: admin.user.role,
+      },
       channelType: config.channelType,
       enabled: config.enabled,
       environment: config.environment,

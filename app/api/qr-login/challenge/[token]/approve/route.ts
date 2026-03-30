@@ -36,11 +36,16 @@ export async function POST(_: Request, context: { params: Promise<{ token: strin
   });
 
   await createAuditLog({
-    userId: admin.user.id,
+    userId: null,
     action: "qr_login_challenge.approved",
     targetType: "QrLoginChallenge",
     targetId: approved.id,
     metadataJson: {
+      actor: {
+        id: admin.user.id,
+        email: admin.user.email,
+        role: admin.user.role,
+      },
       qrToken: approved.qrToken,
       status: approved.status,
     },
