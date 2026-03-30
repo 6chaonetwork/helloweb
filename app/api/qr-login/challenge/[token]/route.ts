@@ -30,10 +30,15 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
 
   const normalizedStatus = normalizeStatus(challenge);
 
-  if (normalizedStatus !== challenge.status) {
+  const persistedFallbackQrUrl = challenge.fallbackQrUrl || buildQrLoginUrl(challenge.qrToken);
+
+  if (normalizedStatus !== challenge.status || !challenge.fallbackQrUrl) {
     await prisma.qrLoginChallenge.update({
       where: { id: challenge.id },
-      data: { status: normalizedStatus },
+      data: {
+        status: normalizedStatus,
+        fallbackQrUrl: challenge.fallbackQrUrl ? undefined : persistedFallbackQrUrl,
+      },
     });
   }
 
@@ -47,7 +52,11 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
         expiresAt: challenge.expiresAt,
         approvedAt: challenge.approvedAt,
         consumedAt: challenge.consumedAt,
-        qrUrl: buildQrLoginUrl(challenge.qrToken),
+        qrUrl: challenge.qrUrl || persistedFallbackQrUrl,
+        qrTicket: challenge.qrTicket,
+        qrSource: challenge.qrSource || "fallback",
+        fallbackQrUrl: persistedFallbackQrUrl,
+        qrCreateError: challenge.qrCreateError,
       },
     }),
     origin,

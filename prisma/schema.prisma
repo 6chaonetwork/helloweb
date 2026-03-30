@@ -97,6 +97,11 @@ model QrLoginChallenge {
   deviceId       String?
   status         QrLoginChallengeStatus @default(PENDING)
   qrToken        String                 @unique
+  qrUrl          String?
+  qrTicket       String?
+  qrSource       String?
+  qrCreateError  String?
+  fallbackQrUrl  String?
   wechatOpenId   String?
   wechatEventKey String?
   expiresAt      DateTime

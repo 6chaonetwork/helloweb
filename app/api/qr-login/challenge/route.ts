@@ -26,20 +26,12 @@ export async function POST(request: Request) {
   const eventKey = `qrlogin:${qrToken}`;
   const fallbackQrUrl = buildQrLoginUrl(qrToken);
 
-  const challenge = await prisma.qrLoginChallenge.create({
-    data: {
-      qrToken,
-      wechatEventKey: eventKey,
-      expiresAt,
-      deviceId: body.deviceId ?? null,
-    },
-  });
-
-  const channelConfig = await getChannelConfig();
   let qrUrl = fallbackQrUrl;
   let qrTicket: string | null = null;
   let qrSource: "wechat" | "fallback" = "fallback";
   let qrCreateError: string | null = null;
+
+  const channelConfig = await getChannelConfig();
 
   if (channelConfig?.enabled && channelConfig.appId && channelConfig.appSecretEncrypted) {
     try {
@@ -55,21 +47,37 @@ export async function POST(request: Request) {
       qrSource = "wechat";
     } catch (error) {
       qrCreateError = error instanceof Error ? error.message : "Failed to create WeChat QR code";
-
-      await prisma.auditLog.create({
-        data: {
-          userId: null,
-          action: "qr_login_challenge.wechat_qr_create_failed",
-          targetType: "QrLoginChallenge",
-          targetId: challenge.id,
-          metadataJson: {
-            qrToken: challenge.qrToken,
-            eventKey,
-            error: qrCreateError,
-          },
-        },
-      });
     }
+  }
+
+  const challenge = await prisma.qrLoginChallenge.create({
+    data: {
+      qrToken,
+      qrUrl,
+      qrTicket,
+      qrSource,
+      qrCreateError,
+      fallbackQrUrl,
+      wechatEventKey: eventKey,
+      expiresAt,
+      deviceId: body.deviceId ?? null,
+    },
+  });
+
+  if (qrCreateError) {
+    await prisma.auditLog.create({
+      data: {
+        userId: null,
+        action: "qr_login_challenge.wechat_qr_create_failed",
+        targetType: "QrLoginChallenge",
+        targetId: challenge.id,
+        metadataJson: {
+          qrToken: challenge.qrToken,
+          eventKey,
+          error: qrCreateError,
+        },
+      },
+    });
   }
 
   return withCors(
@@ -80,11 +88,11 @@ export async function POST(request: Request) {
         eventKey,
         status: challenge.status,
         expiresAt: challenge.expiresAt,
-        qrUrl,
-        qrTicket,
-        qrSource,
-        fallbackQrUrl,
-        qrCreateError,
+        qrUrl: challenge.qrUrl,
+        qrTicket: challenge.qrTicket,
+        qrSource: challenge.qrSource,
+        fallbackQrUrl: challenge.fallbackQrUrl,
+        qrCreateError: challenge.qrCreateError,
       },
     }),
     origin,
