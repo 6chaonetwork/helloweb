@@ -8,3 +8,8 @@ export function getChallengeTtlSeconds() {
   if (!Number.isFinite(raw) || raw <= 0) return 300;
   return raw;
 }
+
+export function getChallengeExpireSeconds(ttlSeconds: number) {
+  if (!Number.isFinite(ttlSeconds) || ttlSeconds <= 0) return 300;
+  return Math.max(60, Math.min(2_592_000, Math.floor(ttlSeconds)));
+}

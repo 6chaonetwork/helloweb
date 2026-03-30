@@ -42,6 +42,7 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
       challenge: {
         id: challenge.id,
         qrToken: challenge.qrToken,
+        eventKey: challenge.wechatEventKey,
         status: normalizedStatus,
         expiresAt: challenge.expiresAt,
         approvedAt: challenge.approvedAt,

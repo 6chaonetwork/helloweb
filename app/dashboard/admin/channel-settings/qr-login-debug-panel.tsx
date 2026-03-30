@@ -11,6 +11,10 @@ type ChallengeResponse = {
     expiresAt: string;
     approvedAt?: string | null;
     qrUrl?: string;
+    qrTicket?: string | null;
+    qrSource?: "wechat" | "fallback";
+    fallbackQrUrl?: string;
+    qrCreateError?: string | null;
   };
 };
 
@@ -41,7 +45,7 @@ export function QrLoginDebugPanel() {
       }
 
       setChallenge(data.challenge);
-      setMessage("challenge 已生成");
+      setMessage(data.challenge.qrSource === "wechat" ? "challenge 已生成，当前为真实微信参数二维码" : "challenge 已生成，当前回退到网页登录二维码");
     } catch {
       setError("创建 challenge 失败，请稍后再试");
     } finally {
@@ -112,7 +116,10 @@ export function QrLoginDebugPanel() {
         return;
       }
 
-      setChallenge(data.challenge);
+      setChallenge((prev) => ({
+        ...prev,
+        ...data.challenge,
+      }));
       setMessage(`当前状态：${data.challenge.status}`);
     } catch {
       setError("刷新状态失败，请稍后再试");
@@ -166,7 +173,11 @@ export function QrLoginDebugPanel() {
           <div><strong>status:</strong> {challenge.status}</div>
           <div><strong>expiresAt:</strong> {challenge.expiresAt}</div>
           <div><strong>approvedAt:</strong> {challenge.approvedAt || "-"}</div>
-          <div><strong>qrUrl:</strong> {challenge.qrUrl || "-"}</div>
+          <div><strong>qrSource:</strong> {challenge.qrSource || "-"}</div>
+          <div><strong>qrTicket:</strong> {challenge.qrTicket || "-"}</div>
+          <div className="break-all"><strong>qrUrl:</strong> {challenge.qrUrl || "-"}</div>
+          <div className="break-all"><strong>fallbackQrUrl:</strong> {challenge.fallbackQrUrl || "-"}</div>
+          <div className="break-all"><strong>qrCreateError:</strong> {challenge.qrCreateError || "-"}</div>
         </div>
       ) : null}
     </section>
