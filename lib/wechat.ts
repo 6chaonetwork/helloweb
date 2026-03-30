@@ -25,6 +25,7 @@ type CachedAccessToken = {
 };
 
 const TOKEN_REFRESH_BUFFER_MS = 60_000;
+const WECHAT_QR_IMAGE_BASE_URL = "https://mp.weixin.qq.com";
 
 const globalForWechat = globalThis as typeof globalThis & {
   __wechatAccessTokenCache?: Map<string, CachedAccessToken>;
@@ -40,6 +41,10 @@ function getAccessTokenCache() {
 
 function getWechatApiBaseUrl() {
   return process.env.WECHAT_API_BASE_URL || "https://api.weixin.qq.com";
+}
+
+export function buildWechatQrImageUrl(ticket: string) {
+  return `${WECHAT_QR_IMAGE_BASE_URL}/cgi-bin/showqrcode?ticket=${encodeURIComponent(ticket)}`;
 }
 
 function getRequiredCredential(config: ChannelConfigLike) {
@@ -137,6 +142,6 @@ export async function createWechatParamQrCode(input: {
     ticket: data.ticket,
     url: data.url || null,
     expireSeconds: data.expire_seconds || expireSeconds,
-    qrUrl: `${getWechatApiBaseUrl()}/cgi-bin/showqrcode?ticket=${encodeURIComponent(data.ticket)}`,
+    qrUrl: buildWechatQrImageUrl(data.ticket),
   };
 }
