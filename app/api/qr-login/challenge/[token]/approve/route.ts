@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { QrLoginChallengeStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { createAuditLog, requireAdmin } from "@/lib/admin";
+import { createAuditLog } from "@/lib/admin";
 import { buildCorsPreflightResponse, withCors } from "@/lib/cors";
 
 export function OPTIONS(request: Request) {
@@ -10,11 +10,6 @@ export function OPTIONS(request: Request) {
 
 export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
   const origin = request.headers.get("origin");
-  const admin = await requireAdmin();
-  if (!admin.ok) {
-    return withCors(NextResponse.json({ error: admin.error }, { status: admin.status }), origin);
-  }
-
   const { token } = await context.params;
   const challenge = await prisma.qrLoginChallenge.findUnique({
     where: { qrToken: token },
@@ -43,17 +38,13 @@ export async function POST(request: Request, context: { params: Promise<{ token:
 
   await createAuditLog({
     userId: null,
-    action: "qr_login_challenge.approved",
+    action: "qr_login_challenge.approved_from_qr_page",
     targetType: "QrLoginChallenge",
     targetId: approved.id,
     metadataJson: {
-      actor: {
-        id: admin.user.id,
-        email: admin.user.email,
-        role: admin.user.role,
-      },
       qrToken: approved.qrToken,
       status: approved.status,
+      approvedVia: "qr-login-page",
     },
   });
 
