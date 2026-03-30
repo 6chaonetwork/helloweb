@@ -6,7 +6,11 @@ import { buildCorsPreflightResponse, withCors } from "@/lib/cors";
 
 function normalizeStatus(challenge: { status: QrLoginChallengeStatus; expiresAt: Date }) {
   if (
-    [QrLoginChallengeStatus.PENDING, QrLoginChallengeStatus.SCANNED, QrLoginChallengeStatus.FOLLOWED].includes(challenge.status) &&
+    (
+      challenge.status === QrLoginChallengeStatus.PENDING ||
+      challenge.status === QrLoginChallengeStatus.SCANNED ||
+      challenge.status === QrLoginChallengeStatus.FOLLOWED
+    ) &&
     challenge.expiresAt.getTime() <= Date.now()
   ) {
     return QrLoginChallengeStatus.EXPIRED;
