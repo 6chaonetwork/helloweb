@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { QrLoginChallengeStatus, UserStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { getWechatAccessToken, getWechatUserProfile } from "@/lib/wechat";
 import { parseWechatXml } from "@/lib/wechat-xml";
 
 const DEFAULT_CHANNEL_TYPE = "WECHAT_OFFICIAL_ACCOUNT";
@@ -41,6 +42,11 @@ async function upsertWechatUser(input: {
   openId: string;
   isFollowing: boolean;
   event: string | null;
+  profile?: {
+    nickname?: string | null;
+    avatarUrl?: string | null;
+    unionId?: string | null;
+  } | null;
 }) {
   const now = new Date();
   const existing = await prisma.user.findUnique({
@@ -51,8 +57,13 @@ async function upsertWechatUser(input: {
     return prisma.user.update({
       where: { id: existing.id },
       data: {
+        name: input.profile?.nickname || existing.name,
+        avatarUrl: input.profile?.avatarUrl || existing.avatarUrl,
+        wechatUnionId: input.profile?.unionId || existing.wechatUnionId,
         wechatFollowed: input.isFollowing ? true : existing.wechatFollowed,
         wechatFollowedAt: input.isFollowing ? existing.wechatFollowedAt || now : existing.wechatFollowedAt,
+        wechatNickname: input.profile?.nickname || existing.wechatNickname,
+        wechatAvatarUrl: input.profile?.avatarUrl || existing.wechatAvatarUrl,
         lastWechatEvent: input.event,
         lastWechatEventAt: now,
       },
@@ -62,10 +73,14 @@ async function upsertWechatUser(input: {
   return prisma.user.create({
     data: {
       email: buildPlaceholderEmail(input.openId),
-      name: `微信用户-${input.openId.slice(-6)}`,
+      name: input.profile?.nickname || `微信用户-${input.openId.slice(-6)}`,
+      avatarUrl: input.profile?.avatarUrl || null,
       wechatOpenId: input.openId,
+      wechatUnionId: input.profile?.unionId || null,
       wechatFollowed: input.isFollowing,
       wechatFollowedAt: input.isFollowing ? now : null,
+      wechatNickname: input.profile?.nickname || null,
+      wechatAvatarUrl: input.profile?.avatarUrl || null,
       lastWechatEvent: input.event,
       lastWechatEventAt: now,
       status: UserStatus.ACTIVE,
@@ -101,6 +116,31 @@ async function processChallengeEvent(input: {
   const isScan = normalizedEvent === "scan";
   const openId = input.openId || null;
   const now = new Date();
+  const channelConfig = await getChannelConfig();
+
+  let profile: {
+    nickname?: string | null;
+    avatarUrl?: string | null;
+    unionId?: string | null;
+  } | null = null;
+
+  if (
+    openId
+    && (isSubscribe || isScan)
+    && channelConfig?.enabled
+    && channelConfig.appId
+    && channelConfig.appSecretEncrypted
+  ) {
+    try {
+      const accessToken = await getWechatAccessToken(channelConfig);
+      profile = await getWechatUserProfile({
+        accessToken,
+        openId,
+      });
+    } catch {
+      profile = null;
+    }
+  }
 
   let userId: string | null = challenge.userId;
   if (openId) {
@@ -108,6 +148,7 @@ async function processChallengeEvent(input: {
       openId,
       isFollowing: isSubscribe || isScan,
       event: input.event || null,
+      profile,
     });
     userId = user.id;
   }

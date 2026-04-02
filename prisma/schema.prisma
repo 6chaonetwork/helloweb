@@ -48,6 +48,7 @@ model User {
   name               String?
   avatarUrl          String?
   wechatOpenId       String?            @unique
+  wechatUnionId      String?
   wechatFollowed     Boolean            @default(false)
   wechatFollowedAt   DateTime?
   wechatNickname     String?
@@ -62,14 +63,17 @@ model User {
   devices        Device[]
   loginCodes     LoginCode[]
   qrChallenges   QrLoginChallenge[]
+  authSessions   AuthSession[]
   auditLogs      AuditLog[]
 
   @@index([wechatOpenId])
+  @@index([wechatUnionId])
 }
 
 model Device {
   id            String       @id @default(cuid())
   userId        String?
+  clientDeviceId String?
   deviceName    String
   deviceType    String?
   platform      String?
@@ -82,8 +86,10 @@ model Device {
   user         User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
   loginCodes   LoginCode[]
   qrChallenges QrLoginChallenge[]
+  authSessions AuthSession[]
 
   @@index([userId])
+  @@index([clientDeviceId])
 }
 
 model LoginCode {
@@ -106,6 +112,7 @@ model QrLoginChallenge {
   id                 String                 @id @default(cuid())
   userId             String?
   deviceId           String?
+  clientDeviceId     String?
   status             QrLoginChallengeStatus @default(PENDING)
   qrToken            String                 @unique
   qrUrl              String?
@@ -131,8 +138,30 @@ model QrLoginChallenge {
 
   @@index([userId])
   @@index([deviceId])
+  @@index([clientDeviceId])
   @@index([status])
   @@index([wechatOpenId])
+}
+
+model AuthSession {
+  id                    String   @id @default(cuid())
+  userId                String
+  deviceId              String?
+  accessTokenHash       String   @unique
+  refreshTokenHash      String   @unique
+  accessTokenExpiresAt  DateTime
+  refreshTokenExpiresAt DateTime
+  lastSeenAt            DateTime?
+  revokedAt             DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device Device? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([deviceId])
+  @@index([revokedAt])
 }
 
 model ChannelConfig {

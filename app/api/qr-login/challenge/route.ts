@@ -20,18 +20,18 @@ export function OPTIONS(request: Request) {
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");
   const body = await request.json().catch(() => ({}));
+  const channelConfig = await getChannelConfig();
   const ttlSeconds = typeof body.ttlSeconds === "number" && body.ttlSeconds > 0 ? body.ttlSeconds : getChallengeTtlSeconds();
   const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
   const qrToken = randomUUID();
   const eventKey = `qrlogin:${qrToken}`;
-  const fallbackQrUrl = buildQrLoginUrl(qrToken);
+  const fallbackQrUrl = buildQrLoginUrl(qrToken, channelConfig?.qrLoginBaseUrl);
+  const pollingIntervalMs = channelConfig?.pollingIntervalMs || 2000;
 
   let qrUrl = fallbackQrUrl;
   let qrTicket: string | null = null;
   let qrSource: "wechat" | "fallback" = "fallback";
   let qrCreateError: string | null = null;
-
-  const channelConfig = await getChannelConfig();
 
   if (channelConfig?.enabled && channelConfig.appId && channelConfig.appSecretEncrypted) {
     try {
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       fallbackQrUrl,
       wechatEventKey: eventKey,
       expiresAt,
-      deviceId: body.deviceId ?? null,
+      clientDeviceId: body.deviceId ?? null,
     },
   });
 
@@ -93,6 +93,7 @@ export async function POST(request: Request) {
         qrSource: challenge.qrSource,
         fallbackQrUrl: challenge.fallbackQrUrl,
         qrCreateError: challenge.qrCreateError,
+        pollingIntervalMs,
       },
     }),
     origin,

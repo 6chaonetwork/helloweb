@@ -13,6 +13,16 @@ type WechatQrcodeResponse = {
   errmsg?: string;
 };
 
+type WechatUserInfoResponse = {
+  subscribe?: number;
+  openid?: string;
+  nickname?: string;
+  headimgurl?: string;
+  unionid?: string;
+  errcode?: number;
+  errmsg?: string;
+};
+
 type ChannelConfigLike = {
   appId?: string | null;
   appSecretEncrypted?: string | null;
@@ -143,5 +153,28 @@ export async function createWechatParamQrCode(input: {
     url: data.url || null,
     expireSeconds: data.expire_seconds || expireSeconds,
     qrUrl: buildWechatQrImageUrl(data.ticket),
+  };
+}
+
+export async function getWechatUserProfile(input: {
+  accessToken: string;
+  openId: string;
+}) {
+  const url = new URL("/cgi-bin/user/info", getWechatApiBaseUrl());
+  url.searchParams.set("access_token", input.accessToken);
+  url.searchParams.set("openid", input.openId);
+  url.searchParams.set("lang", "zh_CN");
+
+  const data = await fetchWechatJson<WechatUserInfoResponse>(url.toString());
+  if (data.errcode) {
+    throw new Error(`Failed to get WeChat user profile: ${data.errcode} ${data.errmsg || ""}`.trim());
+  }
+
+  return {
+    subscribe: data.subscribe === 1,
+    openId: data.openid || input.openId,
+    nickname: data.nickname || null,
+    avatarUrl: data.headimgurl || null,
+    unionId: data.unionid || null,
   };
 }

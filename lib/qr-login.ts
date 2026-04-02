@@ -1,6 +1,10 @@
-export function buildQrLoginUrl(qrToken: string) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000";
-  return `${baseUrl}/qr-login/${qrToken}`;
+function normalizeBaseUrl(baseUrl?: string | null) {
+  const raw = (baseUrl || process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000").trim();
+  return raw.replace(/\/+$/, "");
+}
+
+export function buildQrLoginUrl(qrToken: string, baseUrl?: string | null) {
+  return `${normalizeBaseUrl(baseUrl)}/qr-login/${qrToken}`;
 }
 
 export function getChallengeTtlSeconds() {
