@@ -48,24 +48,38 @@ export function buildPublicUser(user: {
   email: string;
   name: string | null;
   avatarUrl: string | null;
+  firstLoginAt?: Date | null;
+  lastLoginAt?: Date | null;
   role: string;
   status: string;
   wechatOpenId: string | null;
   wechatFollowed: boolean;
   wechatNickname: string | null;
   wechatAvatarUrl: string | null;
+  wechatSex?: number | null;
+  wechatLanguage?: string | null;
+  wechatCity?: string | null;
+  wechatProvince?: string | null;
+  wechatCountry?: string | null;
 }) {
   return {
     id: user.id,
     email: user.email,
     name: user.wechatNickname || user.name || user.email,
     avatarUrl: user.wechatAvatarUrl || user.avatarUrl || null,
+    firstLoginAt: user.firstLoginAt ?? null,
+    lastLoginAt: user.lastLoginAt ?? null,
     role: user.role,
     status: user.status,
     wechatBound: Boolean(user.wechatOpenId),
     wechatFollowed: user.wechatFollowed,
     wechatNickname: user.wechatNickname,
     wechatAvatarUrl: user.wechatAvatarUrl,
+    wechatSex: user.wechatSex ?? null,
+    wechatLanguage: user.wechatLanguage ?? null,
+    wechatCity: user.wechatCity ?? null,
+    wechatProvince: user.wechatProvince ?? null,
+    wechatCountry: user.wechatCountry ?? null,
   };
 }
 
@@ -229,8 +243,17 @@ export async function consumeApprovedQrChallenge(input: {
     throw new Error("User unavailable");
   }
 
+  const loginNow = new Date();
+  const persistedUser = await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      firstLoginAt: user.firstLoginAt ?? loginNow,
+      lastLoginAt: loginNow,
+    },
+  });
+
   const device = await resolveOrCreateDevice({
-    userId: user.id,
+    userId: persistedUser.id,
     clientDeviceId: input.clientDeviceId ?? challenge.clientDeviceId,
     deviceName: input.deviceName ?? challenge.device?.deviceName ?? null,
     deviceType: input.deviceType ?? challenge.device?.deviceType ?? null,
@@ -239,14 +262,14 @@ export async function consumeApprovedQrChallenge(input: {
   });
 
   const issued = await createAuthSession({
-    userId: user.id,
+    userId: persistedUser.id,
     deviceId: device?.id ?? challenge.deviceId ?? null,
   });
 
   await prisma.qrLoginChallenge.update({
     where: { id: challenge.id },
     data: {
-      userId: user.id,
+      userId: persistedUser.id,
       deviceId: device?.id ?? challenge.deviceId ?? null,
       clientDeviceId: input.clientDeviceId ?? challenge.clientDeviceId,
       status: QrLoginChallengeStatus.CONSUMED,
@@ -255,7 +278,7 @@ export async function consumeApprovedQrChallenge(input: {
   });
 
   await createAuditLog({
-    userId: user.id,
+    userId: persistedUser.id,
     action: "qr_login_challenge.consumed_by_desktop",
     targetType: "QrLoginChallenge",
     targetId: challenge.id,
@@ -273,7 +296,7 @@ export async function consumeApprovedQrChallenge(input: {
     refreshToken: issued.refreshToken,
     expiresIn: issued.expiresIn,
     session: buildPublicSession(issued.session),
-    user: buildPublicUser(user),
+    user: buildPublicUser(persistedUser),
     device: buildPublicDevice(device),
   };
 }
@@ -351,6 +374,14 @@ export async function refreshAuthSession(input: {
   if (!existing.user || existing.user.status !== UserStatus.ACTIVE) {
     throw new Error("User unavailable");
   }
+
+  await prisma.user.update({
+    where: { id: existing.user.id },
+    data: {
+      firstLoginAt: existing.user.firstLoginAt ?? new Date(),
+      lastLoginAt: new Date(),
+    },
+  }).catch(() => null);
 
   const clientDeviceId = input.clientDeviceId?.trim() || null;
   if (

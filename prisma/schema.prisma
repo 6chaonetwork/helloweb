@@ -47,12 +47,19 @@ model User {
   passwordHash       String?
   name               String?
   avatarUrl          String?
+  firstLoginAt       DateTime?
+  lastLoginAt        DateTime?
   wechatOpenId       String?            @unique
   wechatUnionId      String?
   wechatFollowed     Boolean            @default(false)
   wechatFollowedAt   DateTime?
   wechatNickname     String?
   wechatAvatarUrl    String?
+  wechatSex          Int?
+  wechatLanguage     String?
+  wechatCity         String?
+  wechatProvince     String?
+  wechatCountry      String?
   lastWechatEvent    String?
   lastWechatEventAt  DateTime?
   role               UserRole           @default(USER)

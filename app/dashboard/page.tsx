@@ -15,8 +15,14 @@ const cards = [
   {
     eyebrow: "Admin",
     title: "Channel Settings",
-    desc: "管理公众号/官方通道、二维码登录参数、回调与运行策略。",
+    desc: "管理公众号、官方通道、二维码登录参数、回调与运行策略。",
     href: "/dashboard/admin/channel-settings",
+  },
+  {
+    eyebrow: "Users",
+    title: "User Management",
+    desc: "查看扫码登录后的用户、设备、会话与最近挑战，确认公众号回调和桌面端消费是否真的入库。",
+    href: "/dashboard/admin/users",
   },
 ];
 
@@ -31,7 +37,7 @@ export default async function DashboardPage() {
           <div>
             <h1 className="mb-3 text-4xl font-semibold">HelloClaw Control Center</h1>
             <p className="max-w-3xl text-white/68">
-              这是新的管理骨架。当前重点是先把 channel settings 与 QR login challenge 的后端/API 重新跑起来。
+              这里是新的管理骨架。当前重点是把公众号扫码登录、用户入库、设备绑定和后台可视化全部接起来。
             </p>
           </div>
           <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/72">
@@ -39,7 +45,7 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-3">
+        <div className="mt-8 grid gap-4 md:grid-cols-4">
           {cards.map((card) => {
             const inner = (
               <>

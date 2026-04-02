@@ -17,6 +17,11 @@ type WechatUserInfoResponse = {
   subscribe?: number;
   openid?: string;
   nickname?: string;
+  sex?: number;
+  language?: string;
+  city?: string;
+  province?: string;
+  country?: string;
   headimgurl?: string;
   unionid?: string;
   errcode?: number;
@@ -176,5 +181,10 @@ export async function getWechatUserProfile(input: {
     nickname: data.nickname || null,
     avatarUrl: data.headimgurl || null,
     unionId: data.unionid || null,
+    sex: typeof data.sex === "number" ? data.sex : null,
+    language: data.language || null,
+    city: data.city || null,
+    province: data.province || null,
+    country: data.country || null,
   };
 }

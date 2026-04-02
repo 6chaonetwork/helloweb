@@ -46,6 +46,11 @@ async function upsertWechatUser(input: {
     nickname?: string | null;
     avatarUrl?: string | null;
     unionId?: string | null;
+    sex?: number | null;
+    language?: string | null;
+    city?: string | null;
+    province?: string | null;
+    country?: string | null;
   } | null;
 }) {
   const now = new Date();
@@ -64,6 +69,11 @@ async function upsertWechatUser(input: {
         wechatFollowedAt: input.isFollowing ? existing.wechatFollowedAt || now : existing.wechatFollowedAt,
         wechatNickname: input.profile?.nickname || existing.wechatNickname,
         wechatAvatarUrl: input.profile?.avatarUrl || existing.wechatAvatarUrl,
+        wechatSex: input.profile?.sex ?? existing.wechatSex,
+        wechatLanguage: input.profile?.language || existing.wechatLanguage,
+        wechatCity: input.profile?.city || existing.wechatCity,
+        wechatProvince: input.profile?.province || existing.wechatProvince,
+        wechatCountry: input.profile?.country || existing.wechatCountry,
         lastWechatEvent: input.event,
         lastWechatEventAt: now,
       },
@@ -81,6 +91,11 @@ async function upsertWechatUser(input: {
       wechatFollowedAt: input.isFollowing ? now : null,
       wechatNickname: input.profile?.nickname || null,
       wechatAvatarUrl: input.profile?.avatarUrl || null,
+      wechatSex: input.profile?.sex ?? null,
+      wechatLanguage: input.profile?.language || null,
+      wechatCity: input.profile?.city || null,
+      wechatProvince: input.profile?.province || null,
+      wechatCountry: input.profile?.country || null,
       lastWechatEvent: input.event,
       lastWechatEventAt: now,
       status: UserStatus.ACTIVE,
@@ -122,6 +137,11 @@ async function processChallengeEvent(input: {
     nickname?: string | null;
     avatarUrl?: string | null;
     unionId?: string | null;
+    sex?: number | null;
+    language?: string | null;
+    city?: string | null;
+    province?: string | null;
+    country?: string | null;
   } | null = null;
 
   if (
