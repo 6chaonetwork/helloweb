@@ -41,6 +41,7 @@ type UserListItem = {
     accessTokenExpiresAt: string;
     refreshTokenExpiresAt: string;
     lastSeenAt: string | null;
+    revokedAt: string | null;
     createdAt: string;
     updatedAt: string;
   }>;

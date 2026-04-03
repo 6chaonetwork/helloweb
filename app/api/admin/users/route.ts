@@ -51,7 +51,6 @@ export async function GET(request: Request) {
           },
         },
         authSessions: {
-          where: { revokedAt: null },
           orderBy: { updatedAt: "desc" },
           take: 3,
           select: {
@@ -60,6 +59,7 @@ export async function GET(request: Request) {
             accessTokenExpiresAt: true,
             refreshTokenExpiresAt: true,
             lastSeenAt: true,
+            revokedAt: true,
             createdAt: true,
             updatedAt: true,
           },
