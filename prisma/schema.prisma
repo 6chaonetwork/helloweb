@@ -60,6 +60,9 @@ model User {
   wechatCity         String?
   wechatProvince     String?
   wechatCountry      String?
+  wechatProfileSyncStatus String?
+  wechatProfileSyncError  String?
+  wechatProfileSyncedAt   DateTime?
   lastWechatEvent    String?
   lastWechatEventAt  DateTime?
   role               UserRole           @default(USER)

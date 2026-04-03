@@ -56,6 +56,11 @@ async function upsertWechatUser(input: {
     province?: string | null;
     country?: string | null;
   } | null;
+  profileSync?: {
+    status?: string | null;
+    error?: string | null;
+    syncedAt?: Date | null;
+  } | null;
 }) {
   const now = new Date();
   const existing = await prisma.user.findUnique({
@@ -78,6 +83,9 @@ async function upsertWechatUser(input: {
         wechatCity: input.profile?.city || existing.wechatCity,
         wechatProvince: input.profile?.province || existing.wechatProvince,
         wechatCountry: input.profile?.country || existing.wechatCountry,
+        wechatProfileSyncStatus: input.profileSync?.status ?? existing.wechatProfileSyncStatus,
+        wechatProfileSyncError: input.profileSync?.error ?? existing.wechatProfileSyncError,
+        wechatProfileSyncedAt: input.profileSync?.syncedAt ?? existing.wechatProfileSyncedAt,
         lastWechatEvent: input.event,
         lastWechatEventAt: now,
       },
@@ -100,6 +108,9 @@ async function upsertWechatUser(input: {
       wechatCity: input.profile?.city || null,
       wechatProvince: input.profile?.province || null,
       wechatCountry: input.profile?.country || null,
+      wechatProfileSyncStatus: input.profileSync?.status ?? null,
+      wechatProfileSyncError: input.profileSync?.error ?? null,
+      wechatProfileSyncedAt: input.profileSync?.syncedAt ?? null,
       lastWechatEvent: input.event,
       lastWechatEventAt: now,
       status: UserStatus.ACTIVE,
@@ -147,6 +158,11 @@ async function processChallengeEvent(input: {
     province?: string | null;
     country?: string | null;
   } | null = null;
+  let profileSync: {
+    status?: string | null;
+    error?: string | null;
+    syncedAt?: Date | null;
+  } | null = null;
 
   if (
     openId
@@ -161,9 +177,26 @@ async function processChallengeEvent(input: {
         accessToken,
         openId,
       });
-    } catch {
+      profileSync = {
+        status: "success",
+        error: null,
+        syncedAt: now,
+      };
+    } catch (error) {
+      const syncError = error instanceof Error ? error.message : "wechat_profile_sync_failed";
       profile = null;
+      profileSync = {
+        status: "failed",
+        error: syncError,
+        syncedAt: now,
+      };
     }
+  } else if (openId && (isSubscribe || isScan)) {
+    profileSync = {
+      status: channelConfig?.enabled ? "skipped_missing_credentials" : "skipped_channel_disabled",
+      error: channelConfig?.enabled ? "missing_app_credentials" : "channel_disabled",
+      syncedAt: now,
+    };
   }
 
   let userId: string | null = challenge.userId;
@@ -173,8 +206,25 @@ async function processChallengeEvent(input: {
       isFollowing: isSubscribe || isScan,
       event: input.event || null,
       profile,
+      profileSync,
     });
     userId = user.id;
+
+    if (profileSync?.status === "failed") {
+      await prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "wechat_profile_sync.failed",
+          targetType: "User",
+          targetId: user.id,
+          metadataJson: {
+            openId,
+            error: profileSync.error,
+            event: input.event,
+          },
+        },
+      });
+    }
   }
 
   let nextStatus = challenge.status;

@@ -61,6 +61,9 @@ export function buildPublicUser(user: {
   wechatCity?: string | null;
   wechatProvince?: string | null;
   wechatCountry?: string | null;
+  wechatProfileSyncStatus?: string | null;
+  wechatProfileSyncError?: string | null;
+  wechatProfileSyncedAt?: Date | null;
 }) {
   return {
     id: user.id,
@@ -80,6 +83,9 @@ export function buildPublicUser(user: {
     wechatCity: user.wechatCity ?? null,
     wechatProvince: user.wechatProvince ?? null,
     wechatCountry: user.wechatCountry ?? null,
+    wechatProfileSyncStatus: user.wechatProfileSyncStatus ?? null,
+    wechatProfileSyncError: user.wechatProfileSyncError ?? null,
+    wechatProfileSyncedAt: user.wechatProfileSyncedAt ?? null,
   };
 }
 

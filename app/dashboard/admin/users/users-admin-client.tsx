@@ -17,9 +17,14 @@ type UserListItem = {
   wechatFollowedAt: string | null;
   wechatNickname: string | null;
   wechatAvatarUrl: string | null;
+  wechatSex: number | null;
+  wechatLanguage: string | null;
   wechatCity: string | null;
   wechatProvince: string | null;
   wechatCountry: string | null;
+  wechatProfileSyncStatus: string | null;
+  wechatProfileSyncError: string | null;
+  wechatProfileSyncedAt: string | null;
   lastWechatEvent: string | null;
   lastWechatEventAt: string | null;
   createdAt: string;
@@ -183,9 +188,10 @@ export function UsersAdminClient() {
         if (!cancelled) {
           setDetail(payload.user);
         }
-      } catch {
+      } catch (loadError) {
         if (!cancelled) {
           setDetail(null);
+          setError(loadError instanceof Error ? loadError.message : "加载用户详情失败");
         }
       } finally {
         if (!cancelled) {
@@ -270,6 +276,9 @@ export function UsersAdminClient() {
                             {item.wechatFollowed ? "已关注" : "未确认关注"}
                           </span>
                           <span className="rounded-full border border-white/10 px-2 py-1">
+                            资料同步 {item.wechatProfileSyncStatus || "未记录"}
+                          </span>
+                          <span className="rounded-full border border-white/10 px-2 py-1">
                             设备 {item._count.devices}
                           </span>
                           <span className="rounded-full border border-white/10 px-2 py-1">
@@ -307,11 +316,18 @@ export function UsersAdminClient() {
                   <div>状态：{detail.status}</div>
                   <div>OpenID：{detail.wechatOpenId || "-"}</div>
                   <div>UnionID：{detail.wechatUnionId || "-"}</div>
+                  <div>资料同步状态：{detail.wechatProfileSyncStatus || "-"}</div>
+                  <div>最近同步时间：{formatDate(detail.wechatProfileSyncedAt)}</div>
                   <div>地区：{[detail.wechatCountry, detail.wechatProvince, detail.wechatCity].filter(Boolean).join(" / ") || "-"}</div>
                   <div>最近登录：{formatDate(detail.lastLoginAt)}</div>
                   <div>首次登录：{formatDate(detail.firstLoginAt)}</div>
                   <div>最近微信事件：{detail.lastWechatEvent || "-"}</div>
                 </div>
+                {detail.wechatProfileSyncError ? (
+                  <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                    资料同步失败原因：{detail.wechatProfileSyncError}
+                  </div>
+                ) : null}
               </div>
 
               <DetailSection title="设备">
