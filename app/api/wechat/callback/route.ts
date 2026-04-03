@@ -177,9 +177,12 @@ async function processChallengeEvent(input: {
         accessToken,
         openId,
       });
+      const missingFields: string[] = [];
+      if (!profile.nickname) missingFields.push("nickname");
+      if (!profile.avatarUrl) missingFields.push("avatarUrl");
       profileSync = {
-        status: "success",
-        error: null,
+        status: missingFields.length > 0 ? "partial" : "success",
+        error: missingFields.length > 0 ? `missing_fields:${missingFields.join(",")}` : null,
         syncedAt: now,
       };
     } catch (error) {
@@ -210,11 +213,11 @@ async function processChallengeEvent(input: {
     });
     userId = user.id;
 
-    if (profileSync?.status === "failed") {
+    if (profileSync?.status === "failed" || profileSync?.status === "partial") {
       await prisma.auditLog.create({
         data: {
           userId: user.id,
-          action: "wechat_profile_sync.failed",
+          action: profileSync.status === "partial" ? "wechat_profile_sync.partial" : "wechat_profile_sync.failed",
           targetType: "User",
           targetId: user.id,
           metadataJson: {
