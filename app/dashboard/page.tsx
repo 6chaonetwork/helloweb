@@ -10,7 +10,7 @@ const cards = [
   {
     eyebrow: "QR Login",
     title: "Companion Flow",
-    desc: "扫码登录挑战、审批状态轮询、设备绑定策略都会从这里逐步接回。",
+    desc: "扫码登录、设备绑定、用户入库和桌面端消费都会从这里逐步接回。",
   },
   {
     eyebrow: "Admin",
@@ -21,8 +21,14 @@ const cards = [
   {
     eyebrow: "Users",
     title: "User Management",
-    desc: "查看扫码登录后的用户、设备、会话与最近挑战，确认公众号回调和桌面端消费是否真的入库。",
+    desc: "查看扫码登录后的用户、设备、会话与资料同步情况。",
     href: "/dashboard/admin/users",
+  },
+  {
+    eyebrow: "Notice",
+    title: "Announcement Management",
+    desc: "管理公告窗左侧显示的公告、维护通知与动态内容。",
+    href: "/dashboard/admin/announcements",
   },
 ];
 
@@ -37,7 +43,7 @@ export default async function DashboardPage() {
           <div>
             <h1 className="mb-3 text-4xl font-semibold">HelloClaw Control Center</h1>
             <p className="max-w-3xl text-white/68">
-              这里是新的管理骨架。当前重点是把公众号扫码登录、用户入库、设备绑定和后台可视化全部接起来。
+              这里是后台控制中心。当前重点是把平台内用户身份、公告管理、公众号扫码登录与桌面端接入全部接成正式产品形态。
             </p>
           </div>
           <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/72">
@@ -45,7 +51,7 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-4">
+        <div className="mt-8 grid gap-4 md:grid-cols-5">
           {cards.map((card) => {
             const inner = (
               <>

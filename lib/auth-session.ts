@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "crypto";
 import { DeviceStatus, QrLoginChallengeStatus, UserStatus } from "@prisma/client";
 import { createAuditLog } from "@/lib/admin";
 import { prisma } from "@/lib/db";
+import { ensureUserDisplayIdentity, resolveUserVisibleName } from "@/lib/user-identity";
 
 const ACCESS_TOKEN_TTL_SECONDS = Number(process.env.AUTH_ACCESS_TOKEN_TTL_SECONDS || 60 * 60 * 2);
 const REFRESH_TOKEN_TTL_DAYS = Number(process.env.AUTH_REFRESH_TOKEN_TTL_DAYS || 30);
@@ -47,6 +48,9 @@ export function buildPublicUser(user: {
   id: string;
   email: string;
   name: string | null;
+  displayName?: string | null;
+  publicUserId?: string | null;
+  remarkName?: string | null;
   avatarUrl: string | null;
   firstLoginAt?: Date | null;
   lastLoginAt?: Date | null;
@@ -68,7 +72,10 @@ export function buildPublicUser(user: {
   return {
     id: user.id,
     email: user.email,
-    name: user.wechatNickname || user.name || user.email,
+    name: resolveUserVisibleName(user),
+    displayName: user.displayName ?? null,
+    publicUserId: user.publicUserId ?? null,
+    remarkName: user.remarkName ?? null,
     avatarUrl: user.wechatAvatarUrl || user.avatarUrl || null,
     firstLoginAt: user.firstLoginAt ?? null,
     lastLoginAt: user.lastLoginAt ?? null,
@@ -257,9 +264,10 @@ export async function consumeApprovedQrChallenge(input: {
       lastLoginAt: loginNow,
     },
   });
+  const identityUser = await ensureUserDisplayIdentity(persistedUser.id);
 
   const device = await resolveOrCreateDevice({
-    userId: persistedUser.id,
+    userId: identityUser.id,
     clientDeviceId: input.clientDeviceId ?? challenge.clientDeviceId,
     deviceName: input.deviceName ?? challenge.device?.deviceName ?? null,
     deviceType: input.deviceType ?? challenge.device?.deviceType ?? null,
@@ -268,14 +276,14 @@ export async function consumeApprovedQrChallenge(input: {
   });
 
   const issued = await createAuthSession({
-    userId: persistedUser.id,
+    userId: identityUser.id,
     deviceId: device?.id ?? challenge.deviceId ?? null,
   });
 
   await prisma.qrLoginChallenge.update({
     where: { id: challenge.id },
     data: {
-      userId: persistedUser.id,
+      userId: identityUser.id,
       deviceId: device?.id ?? challenge.deviceId ?? null,
       clientDeviceId: input.clientDeviceId ?? challenge.clientDeviceId,
       status: QrLoginChallengeStatus.CONSUMED,
@@ -284,7 +292,7 @@ export async function consumeApprovedQrChallenge(input: {
   });
 
   await createAuditLog({
-    userId: persistedUser.id,
+    userId: identityUser.id,
     action: "qr_login_challenge.consumed_by_desktop",
     targetType: "QrLoginChallenge",
     targetId: challenge.id,
@@ -302,7 +310,7 @@ export async function consumeApprovedQrChallenge(input: {
     refreshToken: issued.refreshToken,
     expiresIn: issued.expiresIn,
     session: buildPublicSession(issued.session),
-    user: buildPublicUser(persistedUser),
+    user: buildPublicUser(identityUser),
     device: buildPublicDevice(device),
   };
 }
@@ -331,6 +339,10 @@ export async function getAuthContextFromAccessToken(accessToken: string) {
     return null;
   }
 
+  const identityUser = authSession.user.displayName && authSession.user.publicUserId
+    ? authSession.user
+    : await ensureUserDisplayIdentity(authSession.user.id);
+
   await prisma.authSession.update({
     where: { id: authSession.id },
     data: {
@@ -340,10 +352,10 @@ export async function getAuthContextFromAccessToken(accessToken: string) {
 
   return {
     authSession,
-    user: authSession.user,
+    user: identityUser,
     device: authSession.device,
     session: buildPublicSession(authSession),
-    publicUser: buildPublicUser(authSession.user),
+    publicUser: buildPublicUser(identityUser),
     publicDevice: buildPublicDevice(authSession.device),
   };
 }
@@ -381,13 +393,14 @@ export async function refreshAuthSession(input: {
     throw new Error("User unavailable");
   }
 
-  await prisma.user.update({
+  const refreshedUser = await prisma.user.update({
     where: { id: existing.user.id },
     data: {
       firstLoginAt: existing.user.firstLoginAt ?? new Date(),
       lastLoginAt: new Date(),
     },
   }).catch(() => null);
+  const identityUser = await ensureUserDisplayIdentity((refreshedUser ?? existing.user).id);
 
   const clientDeviceId = input.clientDeviceId?.trim() || null;
   if (
@@ -399,7 +412,7 @@ export async function refreshAuthSession(input: {
   }
 
   const device = await resolveOrCreateDevice({
-    userId: existing.user.id,
+    userId: identityUser.id,
     clientDeviceId: clientDeviceId ?? existing.device?.clientDeviceId ?? null,
     deviceName: input.deviceName ?? existing.device?.deviceName ?? null,
     deviceType: input.deviceType ?? existing.device?.deviceType ?? null,
@@ -427,7 +440,7 @@ export async function refreshAuthSession(input: {
     refreshToken: nextRefreshToken,
     expiresIn: getAccessTokenTtlSeconds(),
     session: buildPublicSession(updated),
-    user: buildPublicUser(existing.user),
+    user: buildPublicUser(identityUser),
     device: buildPublicDevice(device ?? existing.device),
   };
 }

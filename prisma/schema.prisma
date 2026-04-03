@@ -46,6 +46,10 @@ model User {
   emailVerifiedAt    DateTime?
   passwordHash       String?
   name               String?
+  displayName        String?            @unique
+  displayNameSeq     Int?               @unique
+  publicUserId       String?            @unique
+  remarkName         String?
   avatarUrl          String?
   firstLoginAt       DateTime?
   lastLoginAt        DateTime?
@@ -78,6 +82,8 @@ model User {
 
   @@index([wechatOpenId])
   @@index([wechatUnionId])
+  @@index([displayName])
+  @@index([publicUserId])
 }
 
 model Device {
@@ -194,6 +200,27 @@ model ChannelConfig {
   environment             ChannelEnvironment @default(DEV)
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
+}
+
+model Announcement {
+  id          String   @id @default(cuid())
+  category    String
+  title       String
+  content     String
+  summary     String?
+  status      String   @default("ACTIVE")
+  pinned      Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AppCounter {
+  key       String   @id
+  value     Int      @default(0)
+  updatedAt DateTime @updatedAt
 }
 
 model AuditLog {
