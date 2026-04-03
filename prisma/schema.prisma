@@ -217,6 +217,26 @@ model Announcement {
   updatedAt   DateTime @updatedAt
 }
 
+model OnboardingConfig {
+  key                String   @id
+  badge              String
+  titleLine1         String
+  titleLine2         String
+  description        String
+  featureTagsJson    Json
+  qrTitle            String
+  stepsJson          Json
+  statusSectionTitle String
+  statusTitle        String
+  statusDescription  String
+  statusCardsJson    Json
+  completionTip      String
+  primaryButton      String
+  secondaryButton    String
+  contactText        String
+  updatedAt          DateTime @updatedAt
+}
+
 model AppCounter {
   key       String   @id
   value     Int      @default(0)
