@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { buildCorsPreflightResponse, withCors } from "@/lib/cors";
 
 const onboardingConfig = {
   wechatQrOnboarding: {
@@ -30,10 +31,18 @@ const onboardingConfig = {
   },
 };
 
-export async function GET() {
-  return NextResponse.json(onboardingConfig, {
-    headers: {
-      "Cache-Control": "public, max-age=60",
-    },
-  });
+export function OPTIONS(request: Request) {
+  return buildCorsPreflightResponse(request.headers.get("origin"));
+}
+
+export async function GET(request: Request) {
+  const origin = request.headers.get("origin");
+  return withCors(
+    NextResponse.json(onboardingConfig, {
+      headers: {
+        "Cache-Control": "public, max-age=60",
+      },
+    }),
+    origin,
+  );
 }
