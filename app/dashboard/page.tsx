@@ -30,6 +30,12 @@ const cards = [
     desc: "管理公告窗左侧显示的公告、维护通知与动态内容。",
     href: "/dashboard/admin/announcements",
   },
+  {
+    eyebrow: "Hero",
+    title: "Onboarding Config",
+    desc: "管理公告窗顶部的 badge、主标题、描述、标签、步骤与联系文案。",
+    href: "/dashboard/admin/onboarding",
+  },
 ];
 
 export default async function DashboardPage() {
@@ -51,7 +57,7 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-5">
+        <div className="mt-8 grid gap-4 md:grid-cols-6">
           {cards.map((card) => {
             const inner = (
               <>
