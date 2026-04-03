@@ -49,6 +49,8 @@ type UserListItem = {
     id: string;
     status: string;
     qrSource: string | null;
+    qrToken: string;
+    clientDeviceId: string | null;
     wechatOpenId: string | null;
     approvedAt: string | null;
     consumedAt: string | null;

@@ -71,6 +71,8 @@ export async function GET(request: Request) {
             id: true,
             status: true,
             qrSource: true,
+            qrToken: true,
+            clientDeviceId: true,
             wechatOpenId: true,
             approvedAt: true,
             consumedAt: true,
