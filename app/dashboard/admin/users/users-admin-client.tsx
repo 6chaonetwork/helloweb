@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 type UserListItem = {
   id: string;
@@ -205,11 +205,6 @@ export function UsersAdminClient() {
       cancelled = true;
     };
   }, [selectedUserId]);
-
-  const selectedListItem = useMemo(
-    () => data?.items.find((item) => item.id === selectedUserId) ?? null,
-    [data?.items, selectedUserId],
-  );
 
   return (
     <div className="grid gap-6">
