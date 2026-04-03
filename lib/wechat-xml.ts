@@ -1,4 +1,4 @@
-function extractXmlValue(xml: string, tag: string) {
+export function extractXmlValue(xml: string, tag: string) {
   const cdataMatch = xml.match(new RegExp(`<${tag}><!\\[CDATA\\[(.*?)\\]\\]><\\/${tag}>`, "s"));
   if (cdataMatch?.[1] !== undefined) return cdataMatch[1];
 

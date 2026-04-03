@@ -2,8 +2,14 @@ import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { QrLoginChallengeStatus, UserStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import {
+  buildWechatCallbackSignature,
+  decryptWechatMessage,
+  encryptWechatMessage,
+  verifyWechatEncryptedSignature,
+} from "@/lib/wechat-crypto";
 import { getWechatAccessToken, getWechatUserProfile } from "@/lib/wechat";
-import { parseWechatXml } from "@/lib/wechat-xml";
+import { extractXmlValue, parseWechatXml } from "@/lib/wechat-xml";
 
 const DEFAULT_CHANNEL_TYPE = "WECHAT_OFFICIAL_ACCOUNT";
 
@@ -14,9 +20,7 @@ async function getChannelConfig() {
 }
 
 function buildSignature(token: string, timestamp: string, nonce: string) {
-  return createHash("sha1")
-    .update([token, timestamp, nonce].sort().join(""))
-    .digest("hex");
+  return createHash("sha1").update([token, timestamp, nonce].sort().join("")).digest("hex");
 }
 
 function extractChallengeToken(eventKey?: string | null, content?: string | null) {
@@ -225,9 +229,11 @@ async function processChallengeEvent(input: {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const signature = searchParams.get("signature") || "";
+  const msgSignature = searchParams.get("msg_signature") || "";
   const timestamp = searchParams.get("timestamp") || "";
   const nonce = searchParams.get("nonce") || "";
   const echostr = searchParams.get("echostr") || "";
+  const encryptType = searchParams.get("encrypt_type") || "";
 
   const config = await getChannelConfig();
   const verifyToken = config?.verifyToken || process.env.WECHAT_VERIFY_TOKEN || null;
@@ -241,7 +247,38 @@ export async function GET(request: Request) {
 
   const expectedSignature = buildSignature(verifyToken, timestamp, nonce);
   if (expectedSignature !== signature) {
-    return new NextResponse("Invalid signature", { status: 401 });
+    if (encryptType !== "aes") {
+      return new NextResponse("Invalid signature", { status: 401 });
+    }
+  }
+
+  if (encryptType === "aes") {
+    if (!config?.encodingAesKeyEncrypted || !config?.appId) {
+      return new NextResponse("Missing EncodingAESKey or AppID", { status: 500 });
+    }
+
+    if (!verifyWechatEncryptedSignature({
+      token: verifyToken,
+      timestamp,
+      nonce,
+      encrypted: echostr,
+      msgSignature,
+    })) {
+      return new NextResponse("Invalid encrypted signature", { status: 401 });
+    }
+
+    const decrypted = decryptWechatMessage({
+      encrypted: echostr,
+      encodingAesKey: config.encodingAesKeyEncrypted,
+      appId: config.appId,
+    });
+
+    return new NextResponse(decrypted.xml, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+      },
+    });
   }
 
   return new NextResponse(echostr, {
@@ -253,12 +290,49 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const timestamp = searchParams.get("timestamp") || "";
+  const nonce = searchParams.get("nonce") || "";
+  const msgSignature = searchParams.get("msg_signature") || "";
   const body = await request.text();
-  const parsed = parseWechatXml(body);
+  const config = await getChannelConfig();
+  const verifyToken = config?.verifyToken || process.env.WECHAT_VERIFY_TOKEN || null;
+
+  let parsedXml = body;
+  let encrypted = false;
+  let decryptError: string | null = null;
+  const encryptedPayload = extractXmlValue(body, "Encrypt");
+
+  if (encryptedPayload) {
+    encrypted = true;
+    if (!verifyToken || !config?.encodingAesKeyEncrypted || !config?.appId) {
+      decryptError = "Missing encrypted callback config";
+    } else if (!verifyWechatEncryptedSignature({
+      token: verifyToken,
+      timestamp,
+      nonce,
+      encrypted: encryptedPayload,
+      msgSignature,
+    })) {
+      decryptError = "Invalid encrypted callback signature";
+    } else {
+      try {
+        parsedXml = decryptWechatMessage({
+          encrypted: encryptedPayload,
+          encodingAesKey: config.encodingAesKeyEncrypted,
+          appId: config.appId,
+        }).xml;
+      } catch (error) {
+        decryptError = error instanceof Error ? error.message : "Failed to decrypt callback";
+      }
+    }
+  }
+
+  const parsed = parseWechatXml(parsedXml);
   const challengeToken = extractChallengeToken(parsed.eventKey, parsed.content);
 
   let result: { ok: boolean; reason?: string } | null = null;
-  if (challengeToken) {
+  if (!decryptError && challengeToken) {
     result = await processChallengeEvent({
       token: challengeToken,
       openId: parsed.fromUserName,
@@ -279,10 +353,38 @@ export async function POST(request: Request) {
         fromUserName: parsed.fromUserName,
         content: parsed.content,
         challengeToken,
+        encrypted,
+        decryptError,
         result,
       },
     },
   });
+
+  if (encrypted && config?.encodingAesKeyEncrypted && config?.appId && verifyToken) {
+    const encryptedResponse = encryptWechatMessage({
+      plainText: "success",
+      encodingAesKey: config.encodingAesKeyEncrypted,
+      appId: config.appId,
+    });
+    const responseTimestamp = String(Math.floor(Date.now() / 1000));
+    const responseNonce = nonce || `${Date.now()}`;
+    const responseSignature = buildWechatCallbackSignature([
+      verifyToken,
+      responseTimestamp,
+      responseNonce,
+      encryptedResponse,
+    ]);
+
+    return new NextResponse(
+      `<xml><Encrypt><![CDATA[${encryptedResponse}]]></Encrypt><MsgSignature><![CDATA[${responseSignature}]]></MsgSignature><TimeStamp>${responseTimestamp}</TimeStamp><Nonce><![CDATA[${responseNonce}]]></Nonce></xml>`,
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/xml; charset=utf-8",
+        },
+      },
+    );
+  }
 
   return new NextResponse("success", {
     status: 200,
