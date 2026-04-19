@@ -12,6 +12,16 @@ enum UserRole {
   ADMIN
 }
 
+enum AdminRole {
+  SUPER_ADMIN
+  OPERATOR
+}
+
+enum AdminStatus {
+  ACTIVE
+  DISABLED
+}
+
 enum UserStatus {
   ACTIVE
   SUSPENDED
@@ -256,4 +266,15 @@ model AuditLog {
 
   @@index([userId])
   @@index([targetType, targetId])
+}
+
+model Admin {
+  id           String    @id @default(uuid()) @db.Uuid
+  username     String    @unique
+  passwordHash String
+  role         AdminRole @default(OPERATOR)
+  status       AdminStatus @default(ACTIVE)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }

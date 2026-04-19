@@ -1,19 +1,54 @@
 @import "tailwindcss";
 
-:root {
-  --background: #050816;
-  --foreground: #f5f7ff;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-dark-base: #050505;
+  --color-dark-surface: #121214;
+  --color-claw-red: #e60000;
+  --color-claw-red-glow: #ff2400;
+  --color-claw-gold: #ffd700;
+
+  /* Compatibility aliases for current components */
+  --color-background: #050505;
+  --color-foreground: #e5e7eb;
+  --color-card: rgba(18, 18, 20, 0.78);
+  --color-card-foreground: #f5f5f5;
+  --color-popover: rgba(12, 12, 14, 0.96);
+  --color-popover-foreground: #f5f5f5;
+  --color-primary: #e60000;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: rgba(28, 28, 31, 0.92);
+  --color-secondary-foreground: #e5e7eb;
+  --color-muted: rgba(23, 23, 26, 0.86);
+  --color-muted-foreground: #9ca3af;
+  --color-accent: rgba(230, 0, 0, 0.1);
+  --color-accent-foreground: #f9fafb;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-input: rgba(255, 255, 255, 0.12);
+  --color-ring: rgba(255, 36, 0, 0.4);
+
+  --font-sans:
+    "IBM Plex Sans",
+    "Segoe UI Variable Display",
+    "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei UI",
+    sans-serif;
+  --font-mono:
+    "JetBrains Mono",
+    "SFMono-Regular",
+    "Cascadia Code",
+    ui-monospace,
+    monospace;
+
+  --radius-sm: 0.75rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.5rem;
+  --radius-xl: 2rem;
 }
 
 * {
   box-sizing: border-box;
+  border-color: rgb(255 255 255 / 0.08);
 }
 
 html {
@@ -21,12 +56,247 @@ html {
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  color: rgb(229 231 235);
+  font-family: var(--font-sans);
+  background:
+    radial-gradient(circle at top, rgb(230 0 0 / 0.12), transparent 24%),
+    radial-gradient(circle at 80% 18%, rgb(255 36 0 / 0.08), transparent 18%),
+    radial-gradient(circle at 18% 82%, rgb(255 215 0 / 0.035), transparent 16%),
+    linear-gradient(180deg, #050505 0%, #080808 42%, #050505 100%);
+}
+
+::selection {
+  background: rgb(230 0 0 / 0.28);
+  color: #fff;
 }
 
 a {
   color: inherit;
   text-decoration: none;
+}
+
+.glass-panel {
+  background: rgb(255 255 255 / 0.05);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow:
+    0 18px 56px rgb(0 0 0 / 0.46),
+    inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+.glow-border-red {
+  position: relative;
+  isolation: isolate;
+}
+
+.glow-border-red::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgb(230 0 0 / 0.6),
+    rgb(255 36 0 / 0.92),
+    rgb(255 215 0 / 0.22)
+  );
+  opacity: 0.34;
+  transition:
+    opacity 220ms ease,
+    filter 220ms ease,
+    transform 220ms ease;
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.glow-border-red:hover::before,
+.glow-border-red:focus-visible::before,
+.glow-border-red[data-active="true"]::before,
+.glow-border-red.is-active::before {
+  opacity: 1;
+  filter:
+    drop-shadow(0 0 10px rgb(230 0 0 / 0.28))
+    drop-shadow(0 0 24px rgb(255 36 0 / 0.18));
+  transform: scale(1.002);
+}
+
+.site-container {
+  width: min(100%, 1240px);
+  margin-inline: auto;
+}
+
+.site-section {
+  padding-inline: 1.5rem;
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.shot-sway-left {
+  animation: shot-sway-left 8s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+.shot-sway-right {
+  animation: shot-sway-right 9s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+.shot-float {
+  animation: shot-float 7s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+.neon-pulse-cyan {
+  animation: neon-pulse-cyan 3.8s ease-in-out infinite;
+}
+
+.neon-pulse-fuchsia {
+  animation: neon-pulse-fuchsia 4.4s ease-in-out infinite;
+}
+
+.orb-drift {
+  animation: orb-drift 12s ease-in-out infinite;
+}
+
+.orb-drift-delayed {
+  animation: orb-drift 15s ease-in-out infinite;
+  animation-delay: -4s;
+}
+
+.grid-drift {
+  animation: grid-drift 18s linear infinite;
+}
+
+.scanlines {
+  position: relative;
+}
+
+.scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(
+    to bottom,
+    rgb(255 255 255 / 0.04),
+    rgb(255 255 255 / 0.01) 1px,
+    transparent 1px,
+    transparent 6px
+  );
+  background-size: 100% 6px;
+  opacity: 0.12;
+}
+
+@keyframes neon-pulse {
+  0%,
+  100% {
+    text-shadow:
+      0 0 15px rgba(230, 0, 0, 0.4),
+      0 0 30px rgba(230, 0, 0, 0.2);
+  }
+  50% {
+    text-shadow:
+      0 0 25px rgba(230, 0, 0, 0.8),
+      0 0 50px rgba(230, 0, 0, 0.5);
+  }
+}
+
+.animate-neon {
+  animation: neon-pulse 3s ease-in-out infinite;
+}
+
+@keyframes shot-sway-left {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1.2deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(0.6deg);
+  }
+}
+
+@keyframes shot-sway-right {
+  0%,
+  100% {
+    transform: translateY(0) rotate(1deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(-0.7deg);
+  }
+}
+
+@keyframes shot-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes neon-pulse-cyan {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgb(255 36 0 / 0.14),
+      0 0 18px rgb(255 36 0 / 0.1),
+      0 0 52px rgb(255 36 0 / 0.05);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgb(255 36 0 / 0.28),
+      0 0 28px rgb(255 36 0 / 0.2),
+      0 0 68px rgb(255 36 0 / 0.1);
+  }
+}
+
+@keyframes neon-pulse-fuchsia {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgb(230 0 0 / 0.16),
+      0 0 22px rgb(230 0 0 / 0.12),
+      0 0 56px rgb(230 0 0 / 0.06);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgb(255 36 0 / 0.26),
+      0 0 30px rgb(255 36 0 / 0.18),
+      0 0 70px rgb(255 36 0 / 0.11);
+  }
+}
+
+@keyframes orb-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(22px, -18px, 0) scale(1.05);
+  }
+}
+
+@keyframes grid-drift {
+  from {
+    background-position: 0 0, 0 0;
+  }
+  to {
+    background-position: 0 40px, 40px 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .site-section {
+    padding-inline: 2rem;
+  }
 }

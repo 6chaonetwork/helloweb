@@ -29,6 +29,14 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.corepack/
+next-dev.stdout.log
+next-dev.stderr.log
+next-start.stdout.log
+next-start.stderr.log
+tmp-*.log
+tmp-*.txt
+tmp-*.json
 
 # env files (can opt-in for committing if needed)
 .env*

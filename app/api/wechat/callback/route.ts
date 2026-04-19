@@ -10,6 +10,7 @@ import {
 } from "@/lib/wechat-crypto";
 import { getWechatAccessToken, getWechatUserProfile } from "@/lib/wechat";
 import { extractXmlValue, parseWechatXml } from "@/lib/wechat-xml";
+import { ensureUserDisplayIdentity } from "@/lib/user-identity";
 
 const DEFAULT_CHANNEL_TYPE = "WECHAT_OFFICIAL_ACCOUNT";
 
@@ -204,13 +205,14 @@ async function processChallengeEvent(input: {
 
   let userId: string | null = challenge.userId;
   if (openId) {
-    const user = await upsertWechatUser({
+    const rawUser = await upsertWechatUser({
       openId,
       isFollowing: isSubscribe || isScan,
       event: input.event || null,
       profile,
       profileSync,
     });
+    const user = await ensureUserDisplayIdentity(rawUser.id);
     userId = user.id;
 
     if (profileSync?.status === "failed" || profileSync?.status === "partial") {

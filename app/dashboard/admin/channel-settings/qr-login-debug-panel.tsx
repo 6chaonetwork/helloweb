@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 type ChallengeResponse = {
   challenge: {
@@ -45,7 +47,11 @@ export function QrLoginDebugPanel() {
       }
 
       setChallenge(data.challenge);
-      setMessage(data.challenge.qrSource === "wechat" ? "challenge 已生成，当前为真实微信参数二维码" : "challenge 已生成，当前回退到网页登录二维码");
+      setMessage(
+        data.challenge.qrSource === "wechat"
+          ? "challenge 已生成，当前为真实微信参数二维码。"
+          : "challenge 已生成，当前回退为网页登录二维码。"
+      );
     } catch {
       setError("创建 challenge 失败，请稍后再试");
     } finally {
@@ -129,57 +135,47 @@ export function QrLoginDebugPanel() {
   }
 
   return (
-    <section className="rounded-3xl border border-cyan-400/20 bg-cyan-500/8 p-6">
-      <p className="m-0 text-xs text-cyan-200/70">QR Login Debug</p>
-      <h2 className="mb-3 mt-3 text-2xl font-semibold text-white">扫码登录调试面板</h2>
-      <p className="mb-6 text-white/68">
-        这里是给当前阶段联调用的。你可以直接在网页里生成 challenge、模拟微信扫码回调、查看 challenge 状态。
-      </p>
+    <Card id="qr-debug" className="rounded-xl border border-zinc-200 bg-white shadow-sm">
+      <CardContent className="p-6">
+        <p className="m-0 text-xs uppercase tracking-[0.22em] text-zinc-500">QR Login Debug</p>
+        <h2 className="mb-3 mt-3 text-2xl font-semibold text-zinc-900">扫码登录调试面板</h2>
+        <p className="mb-6 text-zinc-500">
+          这里用于当前阶段联调。你可以直接在网页里生成 challenge、模拟微信扫码回调，并实时查看 challenge 状态。
+        </p>
 
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={createChallenge}
-          disabled={loading}
-          className="inline-flex h-11 items-center justify-center rounded-full bg-white px-5 font-semibold text-[#08101f] disabled:opacity-60"
-        >
-          生成 challenge
-        </button>
-        <button
-          type="button"
-          onClick={simulateWechatCallback}
-          disabled={loading || !challenge}
-          className="inline-flex h-11 items-center justify-center rounded-full border border-white/15 bg-white/6 px-5 font-semibold text-white disabled:opacity-60"
-        >
-          模拟微信扫码回调
-        </button>
-        <button
-          type="button"
-          onClick={refreshStatus}
-          disabled={loading || !challenge}
-          className="inline-flex h-11 items-center justify-center rounded-full border border-white/15 bg-white/6 px-5 font-semibold text-white disabled:opacity-60"
-        >
-          刷新状态
-        </button>
-      </div>
-
-      {error ? <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div> : null}
-      {message ? <div className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">{message}</div> : null}
-
-      {challenge ? (
-        <div className="mt-6 grid gap-3 rounded-2xl border border-white/10 bg-[#0c1224] p-4 text-sm text-white/78">
-          <div><strong>qrToken:</strong> {challenge.qrToken}</div>
-          <div><strong>eventKey:</strong> {challenge.eventKey || "-"}</div>
-          <div><strong>status:</strong> {challenge.status}</div>
-          <div><strong>expiresAt:</strong> {challenge.expiresAt}</div>
-          <div><strong>approvedAt:</strong> {challenge.approvedAt || "-"}</div>
-          <div><strong>qrSource:</strong> {challenge.qrSource || "-"}</div>
-          <div><strong>qrTicket:</strong> {challenge.qrTicket || "-"}</div>
-          <div className="break-all"><strong>qrUrl:</strong> {challenge.qrUrl || "-"}</div>
-          <div className="break-all"><strong>fallbackQrUrl:</strong> {challenge.fallbackQrUrl || "-"}</div>
-          <div className="break-all"><strong>qrCreateError:</strong> {challenge.qrCreateError || "-"}</div>
+        <div className="flex flex-wrap gap-3">
+          <Button type="button" onClick={createChallenge} disabled={loading} className="bg-claw-red text-white shadow-[0_10px_24px_rgba(230,0,0,0.16)] hover:bg-claw-red/92">
+            生成 challenge
+          </Button>
+          <Button type="button" variant="outline" onClick={simulateWechatCallback} disabled={loading || !challenge} className="border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900">
+            模拟微信扫码回调
+          </Button>
+          <Button type="button" variant="outline" onClick={refreshStatus} disabled={loading || !challenge} className="border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900">
+            刷新状态
+          </Button>
         </div>
-      ) : null}
-    </section>
+
+        {error ? <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div> : null}
+        {message ? <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{message}</div> : null}
+
+        {challenge ? (
+          <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-900 p-4 font-mono text-sm text-green-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="mb-3 text-[11px] uppercase tracking-[0.18em] text-zinc-500">Debug Output</div>
+            <div className="grid gap-3">
+              <div><strong className="text-zinc-300">qrToken:</strong> {challenge.qrToken}</div>
+              <div><strong className="text-zinc-300">eventKey:</strong> {challenge.eventKey || "-"}</div>
+              <div><strong className="text-zinc-300">status:</strong> {challenge.status}</div>
+              <div><strong className="text-zinc-300">expiresAt:</strong> {challenge.expiresAt}</div>
+              <div><strong className="text-zinc-300">approvedAt:</strong> {challenge.approvedAt || "-"}</div>
+              <div><strong className="text-zinc-300">qrSource:</strong> {challenge.qrSource || "-"}</div>
+              <div><strong className="text-zinc-300">qrTicket:</strong> {challenge.qrTicket || "-"}</div>
+              <div className="break-all"><strong className="text-zinc-300">qrUrl:</strong> {challenge.qrUrl || "-"}</div>
+              <div className="break-all"><strong className="text-zinc-300">fallbackQrUrl:</strong> {challenge.fallbackQrUrl || "-"}</div>
+              <div className="break-all"><strong className="text-zinc-300">qrCreateError:</strong> {challenge.qrCreateError || "-"}</div>
+            </div>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }

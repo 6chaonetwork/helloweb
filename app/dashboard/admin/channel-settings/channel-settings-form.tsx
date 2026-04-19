@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type ChannelConfig = {
   id: string;
@@ -37,8 +42,11 @@ const defaultForm = {
   challengeTtlSeconds: 300,
   pollingIntervalMs: 2000,
   enabled: false,
-  environment: "DEV",
+  environment: "DEV" as "DEV" | "STAGING" | "PROD",
 };
+
+const environmentOptions = ["DEV", "STAGING", "PROD"] as const;
+const bindingModeOptions = ["OPTIONAL", "REQUIRED", "DISABLED"] as const;
 
 export function ChannelSettingsForm() {
   const [loading, setLoading] = useState(true);
@@ -87,7 +95,7 @@ export function ChannelSettingsForm() {
       }
     }
 
-    load();
+    void load();
   }, []);
 
   const callbackPreview = useMemo(() => {
@@ -147,130 +155,153 @@ export function ChannelSettingsForm() {
   }
 
   if (loading) {
-    return <div className="rounded-3xl border border-white/10 bg-white/4 p-6 text-white/72">正在加载配置...</div>;
+    return (
+      <Card className="rounded-xl border border-zinc-200 bg-white shadow-sm">
+        <CardContent className="p-6 text-zinc-500">正在加载配置...</CardContent>
+      </Card>
+    );
   }
 
   return (
     <form className="grid gap-6" onSubmit={handleSubmit}>
-      <section className="rounded-3xl border border-white/10 bg-white/4 p-6">
-        <p className="m-0 text-xs text-white/50">Channel Basics</p>
-        <h2 className="mb-4 mt-3 text-2xl font-semibold">基础配置</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="grid gap-2">
-            <span className="text-sm text-white/72">Channel Type</span>
-            <input className="h-12 rounded-2xl border border-white/10 bg-[#0c1224] px-4 text-white" value={channelType} disabled />
-          </label>
-          <label className="grid gap-2">
-            <span className="text-sm text-white/72">环境</span>
-            <select
-              className="h-12 rounded-2xl border border-white/10 bg-[#0c1224] px-4 text-white"
-              value={form.environment}
-              onChange={(event) => updateField("environment", event.target.value as "DEV" | "STAGING" | "PROD")}
-            >
-              <option value="DEV">DEV</option>
-              <option value="STAGING">STAGING</option>
-              <option value="PROD">PROD</option>
-            </select>
-          </label>
-          <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0c1224] px-4 py-3 text-white md:col-span-2">
+      <Card className="rounded-xl border border-zinc-200 bg-white shadow-sm">
+        <CardHeader>
+          <Badge className="border-zinc-200 bg-zinc-50 text-zinc-500">Channel Basics</Badge>
+          <CardTitle className="text-zinc-900">基础配置</CardTitle>
+          <CardDescription className="text-zinc-500">先确定当前通道类型、运行环境和是否启用官方通道。</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <Field label="Channel Type">
+            <Input className="border-zinc-200 bg-white text-zinc-900" value={channelType} disabled />
+          </Field>
+
+          <Field label="环境">
+            <Select value={form.environment} onValueChange={(value) => updateField("environment", value as typeof defaultForm.environment)}>
+              <SelectTrigger className="border-zinc-200 bg-white text-zinc-900">
+                <SelectValue placeholder="选择环境" />
+              </SelectTrigger>
+              <SelectContent className="border-zinc-200 bg-white text-zinc-900 shadow-sm">
+                {environmentOptions.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <label className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-zinc-900 md:col-span-2">
             <input type="checkbox" checked={form.enabled} onChange={(event) => updateField("enabled", event.target.checked)} />
-            <span>启用公众号/官方通道</span>
+            <span>启用公众号 / 官方通道</span>
           </label>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className="rounded-3xl border border-white/10 bg-white/4 p-6">
-        <p className="m-0 text-xs text-white/50">Official Account</p>
-        <h2 className="mb-4 mt-3 text-2xl font-semibold">公众号参数</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="grid gap-2">
-            <span className="text-sm text-white/72">原始 ID</span>
-            <input className="h-12 rounded-2xl border border-white/10 bg-[#0c1224] px-4 text-white" value={form.originalId} onChange={(event) => updateField("originalId", event.target.value)} />
-          </label>
-          <label className="grid gap-2">
-            <span className="text-sm text-white/72">AppID</span>
-            <input className="h-12 rounded-2xl border border-white/10 bg-[#0c1224] px-4 text-white" value={form.appId} onChange={(event) => updateField("appId", event.target.value)} />
-          </label>
-          <label className="grid gap-2">
-            <span className="text-sm text-white/72">AppSecret</span>
-            <input className="h-12 rounded-2xl border border-white/10 bg-[#0c1224] px-4 text-white" value={form.appSecretEncrypted} onChange={(event) => updateField("appSecretEncrypted", event.target.value)} />
-          </label>
-          <label className="grid gap-2">
-            <span className="text-sm text-white/72">Token / Verify Token</span>
-            <input className="h-12 rounded-2xl border border-white/10 bg-[#0c1224] px-4 text-white" value={form.verifyToken} onChange={(event) => updateField("verifyToken", event.target.value)} />
-          </label>
-          <label className="grid gap-2 md:col-span-2">
-            <span className="text-sm text-white/72">EncodingAESKey</span>
-            <input className="h-12 rounded-2xl border border-white/10 bg-[#0c1224] px-4 text-white" value={form.encodingAesKeyEncrypted} onChange={(event) => updateField("encodingAesKeyEncrypted", event.target.value)} />
-          </label>
-        </div>
-      </section>
+      <Card className="rounded-xl border border-zinc-200 bg-white shadow-sm">
+        <CardHeader>
+          <Badge className="border-zinc-200 bg-zinc-50 text-zinc-500">Official Account</Badge>
+          <CardTitle className="text-zinc-900">公众号参数</CardTitle>
+          <CardDescription className="text-zinc-500">这里维护微信官方账号对接所需的核心凭据。</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <Field label="原始 ID">
+            <Input className="border-zinc-200 bg-white text-zinc-900" value={form.originalId} onChange={(event) => updateField("originalId", event.target.value)} />
+          </Field>
+          <Field label="AppID">
+            <Input className="border-zinc-200 bg-white text-zinc-900" value={form.appId} onChange={(event) => updateField("appId", event.target.value)} />
+          </Field>
+          <Field label="AppSecret">
+            <Input className="border-zinc-200 bg-white text-zinc-900" value={form.appSecretEncrypted} onChange={(event) => updateField("appSecretEncrypted", event.target.value)} />
+          </Field>
+          <Field label="Token / Verify Token">
+            <Input className="border-zinc-200 bg-white text-zinc-900" value={form.verifyToken} onChange={(event) => updateField("verifyToken", event.target.value)} />
+          </Field>
+          <Field label="EncodingAESKey" className="md:col-span-2">
+            <Input className="border-zinc-200 bg-white text-zinc-900" value={form.encodingAesKeyEncrypted} onChange={(event) => updateField("encodingAesKeyEncrypted", event.target.value)} />
+          </Field>
+        </CardContent>
+      </Card>
 
-      <section className="rounded-3xl border border-white/10 bg-white/4 p-6">
-        <p className="m-0 text-xs text-white/50">Endpoints</p>
-        <h2 className="mb-4 mt-3 text-2xl font-semibold">回调与登录地址</h2>
-        <div className="grid gap-4">
-          <label className="grid gap-2">
-            <span className="text-sm text-white/72">回调地址 / Callback URL</span>
-            <input className="h-12 rounded-2xl border border-white/10 bg-[#0c1224] px-4 text-white" value={form.callbackUrl} onChange={(event) => updateField("callbackUrl", event.target.value)} />
-          </label>
-          <label className="grid gap-2">
-            <span className="text-sm text-white/72">Webhook URL</span>
-            <input className="h-12 rounded-2xl border border-white/10 bg-[#0c1224] px-4 text-white" value={form.webhookUrl} onChange={(event) => updateField("webhookUrl", event.target.value)} />
-          </label>
-          <label className="grid gap-2">
-            <span className="text-sm text-white/72">二维码登录基地址</span>
-            <input className="h-12 rounded-2xl border border-white/10 bg-[#0c1224] px-4 text-white" value={form.qrLoginBaseUrl} onChange={(event) => updateField("qrLoginBaseUrl", event.target.value)} />
-          </label>
-          <div className="rounded-2xl border border-dashed border-white/10 bg-[#0c1224] px-4 py-3 text-sm text-white/60">
+      <Card className="rounded-xl border border-zinc-200 bg-white shadow-sm">
+        <CardHeader>
+          <Badge className="border-zinc-200 bg-zinc-50 text-zinc-500">Endpoints</Badge>
+          <CardTitle className="text-zinc-900">回调与登录地址</CardTitle>
+          <CardDescription className="text-zinc-500">确定微信回调、Webhook 和二维码登录入口的实际地址。</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <Field label="回调地址 / Callback URL">
+            <Input className="border-zinc-200 bg-white text-zinc-900" value={form.callbackUrl} onChange={(event) => updateField("callbackUrl", event.target.value)} />
+          </Field>
+          <Field label="Webhook URL">
+            <Input className="border-zinc-200 bg-white text-zinc-900" value={form.webhookUrl} onChange={(event) => updateField("webhookUrl", event.target.value)} />
+          </Field>
+          <Field label="二维码登录基地址">
+            <Input className="border-zinc-200 bg-white text-zinc-900" value={form.qrLoginBaseUrl} onChange={(event) => updateField("qrLoginBaseUrl", event.target.value)} />
+          </Field>
+          <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-500">
             当前回调预览：{callbackPreview}
           </div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className="rounded-3xl border border-white/10 bg-white/4 p-6">
-        <p className="m-0 text-xs text-white/50">Runtime Policy</p>
-        <h2 className="mb-4 mt-3 text-2xl font-semibold">扫码登录策略</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="grid gap-2">
-            <span className="text-sm text-white/72">允许平台（逗号分隔）</span>
-            <input className="h-12 rounded-2xl border border-white/10 bg-[#0c1224] px-4 text-white" value={form.allowedPlatforms} onChange={(event) => updateField("allowedPlatforms", event.target.value)} />
-          </label>
-          <label className="grid gap-2">
-            <span className="text-sm text-white/72">设备绑定模式</span>
-            <select
-              className="h-12 rounded-2xl border border-white/10 bg-[#0c1224] px-4 text-white"
-              value={form.deviceBindingMode}
-              onChange={(event) => updateField("deviceBindingMode", event.target.value)}
-            >
-              <option value="OPTIONAL">OPTIONAL</option>
-              <option value="REQUIRED">REQUIRED</option>
-              <option value="DISABLED">DISABLED</option>
-            </select>
-          </label>
-          <label className="grid gap-2">
-            <span className="text-sm text-white/72">Challenge TTL（秒）</span>
-            <input type="number" className="h-12 rounded-2xl border border-white/10 bg-[#0c1224] px-4 text-white" value={form.challengeTtlSeconds} onChange={(event) => updateField("challengeTtlSeconds", Number(event.target.value))} />
-          </label>
-          <label className="grid gap-2">
-            <span className="text-sm text-white/72">轮询间隔（毫秒）</span>
-            <input type="number" className="h-12 rounded-2xl border border-white/10 bg-[#0c1224] px-4 text-white" value={form.pollingIntervalMs} onChange={(event) => updateField("pollingIntervalMs", Number(event.target.value))} />
-          </label>
-        </div>
-      </section>
+      <Card className="rounded-xl border border-zinc-200 bg-white shadow-sm">
+        <CardHeader>
+          <Badge className="border-zinc-200 bg-zinc-50 text-zinc-500">Runtime Policy</Badge>
+          <CardTitle className="text-zinc-900">扫码登录策略</CardTitle>
+          <CardDescription className="text-zinc-500">控制平台白名单、设备绑定策略和挑战轮询参数。</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <Field label="允许平台（逗号分隔）">
+            <Input className="border-zinc-200 bg-white text-zinc-900" value={form.allowedPlatforms} onChange={(event) => updateField("allowedPlatforms", event.target.value)} />
+          </Field>
+          <Field label="设备绑定模式">
+            <Select value={form.deviceBindingMode} onValueChange={(value) => updateField("deviceBindingMode", value)}>
+              <SelectTrigger className="border-zinc-200 bg-white text-zinc-900">
+                <SelectValue placeholder="选择模式" />
+              </SelectTrigger>
+              <SelectContent className="border-zinc-200 bg-white text-zinc-900 shadow-sm">
+                {bindingModeOptions.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Challenge TTL（秒）">
+            <Input className="border-zinc-200 bg-white text-zinc-900" type="number" value={form.challengeTtlSeconds} onChange={(event) => updateField("challengeTtlSeconds", Number(event.target.value))} />
+          </Field>
+          <Field label="轮询间隔（毫秒）">
+            <Input className="border-zinc-200 bg-white text-zinc-900" type="number" value={form.pollingIntervalMs} onChange={(event) => updateField("pollingIntervalMs", Number(event.target.value))} />
+          </Field>
+        </CardContent>
+      </Card>
 
-      {error ? <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div> : null}
-      {success ? <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">{success}</div> : null}
+      {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div> : null}
+      {success ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{success}</div> : null}
 
       <div className="flex justify-end">
-        <button
-          type="submit"
-          disabled={saving}
-          className="inline-flex h-12 items-center justify-center rounded-full bg-white px-6 font-semibold text-[#08101f] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-        >
+        <Button type="submit" disabled={saving} size="lg" className="bg-claw-red text-white shadow-[0_10px_24px_rgba(230,0,0,0.16)] hover:bg-claw-red/92">
           {saving ? "保存中..." : "保存配置"}
-        </button>
+        </Button>
       </div>
     </form>
+  );
+}
+
+function Field({
+  label,
+  className,
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className={className ? `grid gap-2 ${className}` : "grid gap-2"}>
+      <span className="text-sm text-zinc-500">{label}</span>
+      {children}
+    </label>
   );
 }

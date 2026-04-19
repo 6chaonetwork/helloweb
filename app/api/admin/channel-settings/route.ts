@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { ChannelEnvironment } from "@prisma/client";
+import { AdminRole, ChannelEnvironment } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { createAuditLog, requireAdmin } from "@/lib/admin";
+import { createAuditLog, requireAdminRole } from "@/lib/admin";
 
 const DEFAULT_CHANNEL_TYPE = "WECHAT_OFFICIAL_ACCOUNT";
 
@@ -26,7 +26,7 @@ async function getOrCreateChannelConfig() {
 }
 
 export async function GET() {
-  const admin = await requireAdmin();
+  const admin = await requireAdminRole([AdminRole.SUPER_ADMIN]);
   if (!admin.ok) {
     return NextResponse.json({ error: admin.error }, { status: admin.status });
   }
@@ -36,7 +36,7 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const admin = await requireAdmin();
+  const admin = await requireAdminRole([AdminRole.SUPER_ADMIN]);
   if (!admin.ok) {
     return NextResponse.json({ error: admin.error }, { status: admin.status });
   }

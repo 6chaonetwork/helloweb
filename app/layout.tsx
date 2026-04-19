@@ -1,20 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "HelloClaw — AI Agent Operating Layer",
-  description: "HelloClaw 是一个把 AI 助手、自动化工作流、消息触点、设备连接与文档系统整合起来的智能操作层。",
+  title: {
+    default: "HelloClaw | AI Agent Desktop Workspace & Control Center",
+    template: "%s | HelloClaw",
+  },
+  description:
+    "HelloClaw 把 AI Agent 桌面工作区、多渠道接入、自动化任务和运营控制台整合成一套正式产品体验。",
 };
 
 export default function RootLayout({
@@ -23,11 +17,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="zh-CN"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="zh-CN" data-scroll-behavior="smooth" className="h-full antialiased">
+      <body className="min-h-screen bg-dark-base font-sans text-gray-200 antialiased">
+        <Script
+          defer
+          src="https://stats.helloclaw.top/script.js"
+          data-website-id="93d1ed5a-95d8-470e-9654-9ce1159931aa"
+          strategy="afterInteractive"
+        />
+        {children}
+      </body>
     </html>
   );
 }

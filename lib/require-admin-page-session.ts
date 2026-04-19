@@ -1,14 +1,22 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getAdminSessionCookieName, readAdminSessionCookieValue } from "@/lib/admin-auth";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth-options";
+import type { AdminRole } from "@prisma/client";
 
-export async function requireAdminPageSession() {
-  const cookieStore = await cookies();
-  const session = readAdminSessionCookieValue(cookieStore.get(getAdminSessionCookieName())?.value);
+export async function requireAdminPageSession(allowedRoles?: AdminRole[]) {
+  const session = await getServerSession(authOptions);
 
-  if (!session) {
-    redirect("/login");
+  if (!session?.user?.id) {
+    redirect("/admin23671361");
   }
 
-  return session;
+  if (
+    allowedRoles &&
+    session.user.role &&
+    !allowedRoles.includes(session.user.role)
+  ) {
+    redirect("/dashboard/forbidden");
+  }
+
+  return session.user;
 }

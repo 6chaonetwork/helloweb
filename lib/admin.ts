@@ -1,39 +1,49 @@
-import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
-import { readAdminSessionCookieValue, getAdminSessionCookieName } from "@/lib/admin-auth";
-import type { Prisma } from "@prisma/client";
-
-function isAdminPreviewEnabled() {
-  return process.env.ADMIN_PREVIEW_BYPASS === "1";
-}
+import type { AdminRole, Prisma } from "@prisma/client";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth-options";
 
 export async function requireAdmin() {
-  if (isAdminPreviewEnabled()) {
+  const session = await getServerSession(authOptions);
+
+  if (session?.user?.id) {
     return {
       ok: true as const,
       user: {
-        id: "preview-admin",
-        role: "ADMIN",
-        email: "preview@local",
-      },
-    };
-  }
-
-  const cookieStore = await cookies();
-  const session = readAdminSessionCookieValue(cookieStore.get(getAdminSessionCookieName())?.value);
-
-  if (session) {
-    return {
-      ok: true as const,
-      user: {
-        id: session.username,
-        role: "ADMIN",
-        email: `${session.username}@local`,
+        id: session.user.id,
+        role: session.user.role,
+        username: session.user.username,
+        email: `${session.user.username}@local`,
       },
     };
   }
 
   return { ok: false as const, status: 401, error: "Unauthorized" };
+}
+
+export function hasAdminRole(
+  role: AdminRole,
+  allowedRoles: AdminRole[],
+) {
+  return allowedRoles.includes(role);
+}
+
+export async function requireAdminRole(allowedRoles: AdminRole[]) {
+  const admin = await requireAdmin();
+
+  if (!admin.ok) {
+    return admin;
+  }
+
+  if (!hasAdminRole(admin.user.role, allowedRoles)) {
+    return {
+      ok: false as const,
+      status: 403,
+      error: "Forbidden",
+    };
+  }
+
+  return admin;
 }
 
 export async function createAuditLog(input: {

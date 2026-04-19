@@ -34,7 +34,20 @@ export async function GET(request: Request) {
       where,
       orderBy: [{ lastLoginAt: "desc" }, { updatedAt: "desc" }],
       take: limit,
-      include: {
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        displayName: true,
+        lastLoginAt: true,
+        status: true,
+        wechatOpenId: true,
+        wechatUnionId: true,
+        wechatFollowed: true,
+        wechatNickname: true,
+        wechatProfileSyncStatus: true,
+        createdAt: true,
+        updatedAt: true,
         devices: {
           orderBy: { updatedAt: "desc" },
           take: 3,
