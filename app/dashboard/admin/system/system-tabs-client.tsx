@@ -21,6 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DesktopUpdatesClient } from "./desktop-updates-client";
 
 type AdminAccount = {
   id: string;
@@ -216,6 +217,12 @@ export function SystemTabsClient({
           className="rounded-none border-b-2 border-transparent px-0 py-3 text-sm font-medium text-zinc-500 data-[state=active]:border-claw-red data-[state=active]:bg-transparent data-[state=active]:text-zinc-900 data-[state=active]:shadow-none"
         >
           系统状态 (System Health)
+        </TabsTrigger>
+        <TabsTrigger
+          value="desktop-updates"
+          className="rounded-none border-b-2 border-transparent px-0 py-3 text-sm font-medium text-zinc-500 data-[state=active]:border-claw-red data-[state=active]:bg-transparent data-[state=active]:text-zinc-900 data-[state=active]:shadow-none"
+        >
+          桌面更新 (Desktop Updates)
         </TabsTrigger>
       </TabsList>
 
@@ -487,6 +494,10 @@ export function SystemTabsClient({
             </div>
           </div>
         </div>
+      </TabsContent>
+
+      <TabsContent value="desktop-updates" className="outline-none">
+        <DesktopUpdatesClient />
       </TabsContent>
 
       <Dialog

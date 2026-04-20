@@ -19,6 +19,10 @@ export function OPTIONS(request: Request) {
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");
   const body = await request.json().catch(() => ({}));
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  const loginIp = forwardedFor?.split(",")[0]?.trim()
+    || request.headers.get("x-real-ip")
+    || null;
 
   try {
     const result = await refreshAuthSession({
@@ -28,6 +32,7 @@ export async function POST(request: Request) {
       deviceType: typeof body.deviceType === "string" ? body.deviceType : null,
       platform: typeof body.platform === "string" ? body.platform : null,
       clientVersion: typeof body.clientVersion === "string" ? body.clientVersion : null,
+      loginIp,
     });
 
     return withCors(NextResponse.json(result), origin);

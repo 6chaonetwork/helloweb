@@ -86,6 +86,40 @@ pnpm lint
 pnpm prisma:generate
 ```
 
+## 桌面端更新分发
+
+这个仓库可以直接给 HelloClaw U 盘客户端提供补丁更新。
+
+- 更新检查接口：`/api/public/update/check`
+- 补丁静态目录：`/updates/desktop/windows-x64/`
+
+发布一个桌面补丁时：
+
+1. 把补丁文件上传到 `public/updates/desktop/windows-x64/`
+2. 文件名使用唯一名字，例如：
+   `update-2.2.15-abc123def456.asar`
+3. 计算这个文件的 SHA-256
+4. 创建 `public/updates/desktop/windows-x64/manifest.json`
+
+示例：
+
+```json
+{
+  "version": "2.2.15",
+  "fileName": "update-2.2.15-abc123def456.asar",
+  "sha256": "your-sha256",
+  "publishedAt": "2026-04-20T10:00:00.000Z",
+  "notes": "HelloClaw desktop patch"
+}
+```
+
+接口会返回：
+
+- `version`
+- `fileName`
+- `sha256`
+- 自动拼好的绝对 `downloadUrl`
+
 ## 注意事项
 
 - 生产构建依赖 Prisma Client，首次拉起后建议执行一次 `pnpm prisma:generate`

@@ -18,7 +18,7 @@ export default async function AdminSystemPage() {
       <DashboardPageHeader
         eyebrow="Admin / System"
         title="系统与权限"
-        description="统一管理后台多账号权限与控制台全局物理状态。"
+        description="统一管理后台多账号权限、控制台物理状态，以及桌面端补丁更新分发。"
       />
 
       <SystemTabsClient

@@ -2,11 +2,20 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, Search } from "lucide-react";
+import { ArrowRight, Ban, Search, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 type UserListItem = {
@@ -15,6 +24,7 @@ type UserListItem = {
   name: string | null;
   displayName: string | null;
   lastLoginAt: string | null;
+  lastLoginIp: string | null;
   status: string;
   wechatOpenId: string | null;
   wechatUnionId: string | null;
@@ -38,6 +48,12 @@ type UserListResponse = {
     activeDevices: number;
   };
   items: UserListItem[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 };
 
 function formatDate(value?: string | null) {
@@ -55,15 +71,26 @@ function formatDate(value?: string | null) {
 
 export function UsersAdminClient() {
   const [query, setQuery] = useState("");
+  const [pageSize, setPageSize] = useState(20);
+  const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<"lastLoginAt" | "createdAt">("lastLoginAt");
   const [loading, setLoading] = useState(true);
+  const [mutating, setMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<UserListResponse | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<UserListItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UserListItem | null>(null);
 
-  const loadUsers = useCallback(async (search = "") => {
+  const loadUsers = useCallback(async (
+    search = query,
+    nextPage = page,
+    nextLimit = pageSize,
+    nextSort = sortBy,
+  ) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/admin/users?q=${encodeURIComponent(search)}`, {
+      const response = await fetch(`/api/admin/users?q=${encodeURIComponent(search)}&page=${nextPage}&limit=${nextLimit}&sort=${nextSort}`, {
         cache: "no-store",
       });
       const payload = (await response.json()) as UserListResponse & { error?: string };
@@ -77,11 +104,59 @@ export function UsersAdminClient() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, pageSize, query, sortBy]);
 
   useEffect(() => {
-    void loadUsers();
+    void loadUsers("", 1, 20, "lastLoginAt");
   }, [loadUsers]);
+
+  async function handleSuspendUser() {
+    if (!suspendTarget) return;
+    setMutating(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/users/${suspendTarget.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: suspendTarget.status === "SUSPENDED" ? "ACTIVE" : "SUSPENDED",
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "更新用户状态失败");
+      }
+      setSuspendTarget(null);
+      await loadUsers(query, page, pageSize);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "更新用户状态失败");
+    } finally {
+      setMutating(false);
+    }
+  }
+
+  async function handleDeleteUser() {
+    if (!deleteTarget) return;
+    setMutating(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/users/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "删除用户失败");
+      }
+      setDeleteTarget(null);
+      await loadUsers(query, page, pageSize);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "删除用户失败");
+    } finally {
+      setMutating(false);
+    }
+  }
 
   return (
     <div className="grid gap-6">
@@ -97,7 +172,7 @@ export function UsersAdminClient() {
           <div className="text-sm text-zinc-500">
             支持按邮箱、昵称、OpenID 和设备名搜索。
           </div>
-          <div className="flex w-full gap-2 md:w-auto">
+          <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -106,12 +181,54 @@ export function UsersAdminClient() {
             />
             <Button
               type="button"
-              onClick={() => void loadUsers(query)}
+              onClick={() => {
+                setPage(1);
+                void loadUsers(query, 1, pageSize, sortBy);
+              }}
               className="bg-claw-red text-white shadow-[0_10px_24px_rgba(230,0,0,0.16)] hover:bg-claw-red/92"
             >
               <Search size={15} />
               搜索
             </Button>
+            <div className="w-full md:w-[180px]">
+              <Select
+                value={sortBy}
+                onValueChange={(value) => {
+                  const nextSort = value as "lastLoginAt" | "createdAt";
+                  setSortBy(nextSort);
+                  setPage(1);
+                  void loadUsers(query, 1, pageSize, nextSort);
+                }}
+              >
+                <SelectTrigger className="border-zinc-200 bg-white text-zinc-900">
+                  <SelectValue placeholder="排序方式" />
+                </SelectTrigger>
+                <SelectContent className="border-zinc-200 bg-white text-zinc-900 shadow-sm">
+                  <SelectItem value="lastLoginAt">按最后登录时间</SelectItem>
+                  <SelectItem value="createdAt">按注册时间</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full md:w-[160px]">
+              <Select
+                value={String(pageSize)}
+                onValueChange={(value) => {
+                  const nextLimit = Number(value);
+                  setPageSize(nextLimit);
+                  setPage(1);
+                  void loadUsers(query, 1, nextLimit, sortBy);
+                }}
+              >
+                <SelectTrigger className="border-zinc-200 bg-white text-zinc-900">
+                  <SelectValue placeholder="每页条数" />
+                </SelectTrigger>
+                <SelectContent className="border-zinc-200 bg-white text-zinc-900 shadow-sm">
+                  <SelectItem value="20">20 条 / 页</SelectItem>
+                  <SelectItem value="50">50 条 / 页</SelectItem>
+                  <SelectItem value="100">100 条 / 页</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -147,6 +264,7 @@ export function UsersAdminClient() {
                     <TableHead className="text-zinc-500">用户</TableHead>
                     <TableHead className="text-zinc-500">身份与状态</TableHead>
                     <TableHead className="text-zinc-500">设备 / 会话 / 挑战</TableHead>
+                    <TableHead className="text-zinc-500">登录 IP</TableHead>
                     <TableHead className="text-zinc-500">最后登录</TableHead>
                     <TableHead className="text-right text-zinc-500">操作</TableHead>
                   </TableRow>
@@ -199,19 +317,42 @@ export function UsersAdminClient() {
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-zinc-500">
+                        {item.lastLoginIp || "-"}
+                      </TableCell>
+                      <TableCell className="text-sm text-zinc-500">
                         {formatDate(item.lastLoginAt || item.updatedAt)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          asChild
-                          variant="outline"
-                          className="border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
-                        >
-                          <Link href={`/dashboard/admin/users/${item.id}`}>
-                            查看详情
-                            <ArrowRight size={15} />
-                          </Link>
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            asChild
+                            variant="outline"
+                            className="border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+                          >
+                            <Link href={`/dashboard/admin/users/${item.id}`}>
+                              查看详情
+                              <ArrowRight size={15} />
+                            </Link>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="border-red-200 bg-white text-red-600 hover:bg-red-50"
+                            onClick={() => setSuspendTarget(item)}
+                          >
+                            <Ban size={14} />
+                            {item.status === "SUSPENDED" ? "解封" : "封禁"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="border-red-200 bg-white text-red-600 hover:bg-red-50"
+                            onClick={() => setDeleteTarget(item)}
+                          >
+                            <Trash2 size={14} />
+                            删除
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -221,6 +362,110 @@ export function UsersAdminClient() {
           )}
         </CardContent>
       </Card>
+
+      {data?.pagination ? (
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="text-sm text-zinc-500">
+            共 {data.pagination.total} 条记录，第 {data.pagination.page} / {data.pagination.totalPages} 页
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={data.pagination.page <= 1 || loading}
+              className="border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+              onClick={() => {
+                const nextPage = Math.max(1, data.pagination.page - 1);
+                setPage(nextPage);
+                void loadUsers(query, nextPage, pageSize, sortBy);
+              }}
+            >
+              上一页
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={data.pagination.page >= data.pagination.totalPages || loading}
+              className="border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+              onClick={() => {
+                const nextPage = Math.min(data.pagination.totalPages, data.pagination.page + 1);
+                setPage(nextPage);
+                void loadUsers(query, nextPage, pageSize, sortBy);
+              }}
+            >
+              下一页
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      <Dialog
+        open={!!suspendTarget}
+        onOpenChange={(open) => {
+          if (!open) setSuspendTarget(null);
+        }}
+      >
+        <DialogContent className="border-zinc-200 bg-white shadow-sm">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-900">更新用户状态</DialogTitle>
+            <DialogDescription className="text-zinc-500">
+              你将{ suspendTarget?.status === "SUSPENDED" ? "解封" : "封禁" }用户“{suspendTarget?.displayName || suspendTarget?.wechatNickname || suspendTarget?.name || suspendTarget?.email || ""}”。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSuspendTarget(null)}
+              className="border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              disabled={mutating}
+              onClick={() => void handleSuspendUser()}
+              className="border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+            >
+              {mutating ? "处理中..." : suspendTarget?.status === "SUSPENDED" ? "确认解封" : "确认封禁"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent className="border-zinc-200 bg-white shadow-sm">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-900">删除用户</DialogTitle>
+            <DialogDescription className="text-zinc-500">
+              你将删除用户“{deleteTarget?.displayName || deleteTarget?.wechatNickname || deleteTarget?.name || deleteTarget?.email || ""}”。系统会将该用户状态标记为已删除。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              className="border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              disabled={mutating}
+              onClick={() => void handleDeleteUser()}
+              className="border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+            >
+              {mutating ? "删除中..." : "确认删除"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

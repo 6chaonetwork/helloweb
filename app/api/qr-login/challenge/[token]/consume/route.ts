@@ -21,6 +21,10 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   const origin = request.headers.get("origin");
   const { token } = await context.params;
   const body = await request.json().catch(() => ({}));
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  const loginIp = forwardedFor?.split(",")[0]?.trim()
+    || request.headers.get("x-real-ip")
+    || null;
 
   try {
     const result = await consumeApprovedQrChallenge({
@@ -30,6 +34,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
       deviceType: typeof body.deviceType === "string" ? body.deviceType : null,
       platform: typeof body.platform === "string" ? body.platform : null,
       clientVersion: typeof body.clientVersion === "string" ? body.clientVersion : null,
+      loginIp,
     });
 
     return withCors(NextResponse.json(result), origin);

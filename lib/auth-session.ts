@@ -54,6 +54,7 @@ export function buildPublicUser(user: {
   avatarUrl: string | null;
   firstLoginAt?: Date | null;
   lastLoginAt?: Date | null;
+  lastLoginIp?: string | null;
   role: string;
   status: string;
   wechatOpenId: string | null;
@@ -79,6 +80,7 @@ export function buildPublicUser(user: {
     avatarUrl: user.wechatAvatarUrl || user.avatarUrl || null,
     firstLoginAt: user.firstLoginAt ?? null,
     lastLoginAt: user.lastLoginAt ?? null,
+    lastLoginIp: user.lastLoginIp ?? null,
     role: user.role,
     status: user.status,
     wechatBound: Boolean(user.wechatOpenId),
@@ -215,6 +217,7 @@ export async function consumeApprovedQrChallenge(input: {
   deviceType?: string | null;
   platform?: string | null;
   clientVersion?: string | null;
+  loginIp?: string | null;
 }) {
   const challenge = await prisma.qrLoginChallenge.findUnique({
     where: { qrToken: input.qrToken },
@@ -262,6 +265,7 @@ export async function consumeApprovedQrChallenge(input: {
     data: {
       firstLoginAt: user.firstLoginAt ?? loginNow,
       lastLoginAt: loginNow,
+      lastLoginIp: input.loginIp?.trim() || user.lastLoginIp || null,
     },
   });
   const identityUser = await ensureUserDisplayIdentity(persistedUser.id);
@@ -367,6 +371,7 @@ export async function refreshAuthSession(input: {
   deviceType?: string | null;
   platform?: string | null;
   clientVersion?: string | null;
+  loginIp?: string | null;
 }) {
   const refreshToken = input.refreshToken.trim();
   if (!refreshToken) {
@@ -398,6 +403,7 @@ export async function refreshAuthSession(input: {
     data: {
       firstLoginAt: existing.user.firstLoginAt ?? new Date(),
       lastLoginAt: new Date(),
+      lastLoginIp: input.loginIp?.trim() || existing.user.lastLoginIp || null,
     },
   }).catch(() => null);
   const identityUser = await ensureUserDisplayIdentity((refreshedUser ?? existing.user).id);

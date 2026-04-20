@@ -63,6 +63,7 @@ model User {
   avatarUrl          String?
   firstLoginAt       DateTime?
   lastLoginAt        DateTime?
+  lastLoginIp        String?
   wechatOpenId       String?            @unique
   wechatUnionId      String?
   wechatFollowed     Boolean            @default(false)

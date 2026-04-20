@@ -66,12 +66,17 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = (searchParams.get("q") || "").trim();
   const type = (searchParams.get("type") || "ALL") as AuditType;
+  const rawPage = Number(searchParams.get("page") || 1);
+  const rawLimit = Number(searchParams.get("limit") || 20);
+  const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
+  const limit = Number.isFinite(rawLimit)
+    ? Math.max(1, Math.min(Math.floor(rawLimit), 100))
+    : 20;
 
   const items = await prisma.auditLog.findMany({
     orderBy: {
       createdAt: "desc",
     },
-    take: 200,
   });
 
   const normalizedItems = items
@@ -112,7 +117,89 @@ export async function GET(request: Request) {
       return haystack.includes(query.toLowerCase());
     });
 
+  const total = normalizedItems.length;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const safePage = Math.min(page, totalPages);
+  const pagedItems = normalizedItems.slice((safePage - 1) * limit, safePage * limit);
+
   return NextResponse.json({
-    items: normalizedItems,
+    items: pagedItems,
+    pagination: {
+      total,
+      page: safePage,
+      limit,
+      totalPages,
+    },
   });
+}
+
+export async function DELETE(request: Request) {
+  const admin = await requireAdminRole([AdminRole.SUPER_ADMIN]);
+  if (!admin.ok) {
+    return NextResponse.json({ error: admin.error }, { status: admin.status });
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const scope = body?.scope === "filtered" ? "filtered" : "all";
+  const query = typeof body?.q === "string" ? body.q.trim() : "";
+  const type = (body?.type || "ALL") as AuditType;
+
+  if (scope === "all") {
+    const result = await prisma.auditLog.deleteMany({});
+    return NextResponse.json({ success: true, deletedCount: result.count });
+  }
+
+  const items = await prisma.auditLog.findMany({
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  const filteredIds = items
+    .map((item) => {
+      const eventType = inferAuditType(item.action);
+      const actor = normalizeActor(item.metadataJson, item.userId);
+      const detailsText = item.metadataJson ? JSON.stringify(item.metadataJson) : "";
+
+      return {
+        id: item.id,
+        eventType,
+        action: item.action,
+        actor,
+        targetType: item.targetType,
+        targetId: item.targetId,
+        detailsText,
+      };
+    })
+    .filter((item) => (type === "ALL" ? true : item.eventType === type))
+    .filter((item) => {
+      if (!query) return true;
+
+      const haystack = [
+        item.action,
+        item.actor,
+        item.targetType || "",
+        item.targetId || "",
+        item.detailsText,
+      ]
+        .join("\n")
+        .toLowerCase();
+
+      return haystack.includes(query.toLowerCase());
+    })
+    .map((item) => item.id);
+
+  if (filteredIds.length === 0) {
+    return NextResponse.json({ success: true, deletedCount: 0 });
+  }
+
+  const result = await prisma.auditLog.deleteMany({
+    where: {
+      id: {
+        in: filteredIds,
+      },
+    },
+  });
+
+  return NextResponse.json({ success: true, deletedCount: result.count });
 }

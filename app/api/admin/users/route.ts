@@ -9,6 +9,7 @@ function buildUserWhere(query: string) {
   return {
     OR: [
       { name: { contains: q, mode: "insensitive" as const } },
+      { displayName: { contains: q, mode: "insensitive" as const } },
       { email: { contains: q, mode: "insensitive" as const } },
       { wechatNickname: { contains: q, mode: "insensitive" as const } },
       { wechatOpenId: { contains: q } },
@@ -25,14 +26,21 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q") || "";
-  const rawLimit = Number(searchParams.get("limit") || 50);
-  const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(rawLimit, 200)) : 50;
+  const rawLimit = Number(searchParams.get("limit") || 20);
+  const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(rawLimit, 100)) : 20;
+  const rawPage = Number(searchParams.get("page") || 1);
+  const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
+  const sort = searchParams.get("sort") === "createdAt" ? "createdAt" : "lastLoginAt";
   const where = buildUserWhere(query);
 
-  const [items, totalUsers, followedUsers, activeSessions, activeDevices] = await prisma.$transaction([
+  const [items, totalFiltered, totalUsers, followedUsers, activeSessions, activeDevices] = await prisma.$transaction([
     prisma.user.findMany({
       where,
-      orderBy: [{ lastLoginAt: "desc" }, { updatedAt: "desc" }],
+      orderBy:
+        sort === "createdAt"
+          ? [{ createdAt: "desc" }, { updatedAt: "desc" }]
+          : [{ lastLoginAt: "desc" }, { updatedAt: "desc" }],
+      skip: (page - 1) * limit,
       take: limit,
       select: {
         id: true,
@@ -40,6 +48,7 @@ export async function GET(request: Request) {
         name: true,
         displayName: true,
         lastLoginAt: true,
+        lastLoginIp: true,
         status: true,
         wechatOpenId: true,
         wechatUnionId: true,
@@ -101,6 +110,7 @@ export async function GET(request: Request) {
         },
       },
     }),
+    prisma.user.count({ where }),
     prisma.user.count(),
     prisma.user.count({ where: { wechatFollowed: true } }),
     prisma.authSession.count({ where: { revokedAt: null } }),
@@ -115,5 +125,12 @@ export async function GET(request: Request) {
       activeDevices,
     },
     items,
+    pagination: {
+      total: totalFiltered,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(totalFiltered / limit)),
+    },
+    sort,
   });
 }
