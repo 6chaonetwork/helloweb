@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { buildCorsPreflightResponse, withCors } from "@/lib/cors";
 import {
-  buildPublicDesktopUpdateConfigUrl,
   buildPublicDesktopUpdateDownloadUrl,
-  buildPublicDesktopUpdateManifestUrl,
   readPublicDesktopUpdateDistributionConfig,
+  readPublicDesktopUpdateManifest,
   type PublicDesktopUpdateManifest,
 } from "@/lib/update-feed-public";
 
@@ -14,38 +13,14 @@ export function OPTIONS(request: Request) {
 
 export async function GET(request: Request) {
   const origin = request.headers.get("origin");
-  const manifestUrl = buildPublicDesktopUpdateManifestUrl(request);
-  const distributionConfig = await readPublicDesktopUpdateDistributionConfig(request);
-  const manifestResponse = await fetch(manifestUrl, {
-    cache: "no-store",
-  });
-
-  if (!manifestResponse.ok) {
+  const distributionConfig = await readPublicDesktopUpdateDistributionConfig();
+  const manifest = await readPublicDesktopUpdateManifest();
+  if (!manifest) {
     return withCors(
       NextResponse.json(
         { success: false, error: "No published desktop update" },
         {
           status: 404,
-          headers: {
-            "Cache-Control": "no-store",
-          },
-        },
-      ),
-      origin,
-    );
-  }
-
-  const manifest = (await manifestResponse.json()) as Partial<PublicDesktopUpdateManifest>;
-  if (
-    typeof manifest.version !== "string"
-    || typeof manifest.fileName !== "string"
-    || typeof manifest.sha256 !== "string"
-  ) {
-    return withCors(
-      NextResponse.json(
-        { success: false, error: "Invalid desktop update manifest" },
-        {
-          status: 500,
           headers: {
             "Cache-Control": "no-store",
           },
@@ -74,7 +49,6 @@ export async function GET(request: Request) {
         publishedAt: manifest.publishedAt ?? null,
         notes: manifest.notes ?? null,
         deliveryMode: distributionConfig.deliveryMode,
-        configUrl: buildPublicDesktopUpdateConfigUrl(request),
       },
       {
         headers: {

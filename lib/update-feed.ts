@@ -34,6 +34,7 @@ const DEFAULT_PUBLIC_UPDATE_DIR = path.join(
   "desktop",
   "windows-x64",
 );
+const DEFAULT_PUBLIC_SITE_ORIGIN = "https://helloclaw.top";
 
 function normalizeSha256(value: string): string {
   return value.trim().toLowerCase();
@@ -174,7 +175,9 @@ export function buildDesktopUpdateDownloadUrl(request: Request, fileName: string
     ).toString();
   }
 
-  const origin = new URL(request.url).origin;
+  const origin = process.env.HELLOCLAW_PUBLIC_SITE_ORIGIN?.trim()
+    || DEFAULT_PUBLIC_SITE_ORIGIN
+    || new URL(request.url).origin;
   return `${origin}/updates/desktop/windows-x64/${encodeURIComponent(fileName)}`;
 }
 

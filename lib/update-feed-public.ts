@@ -1,3 +1,8 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 export type PublicDesktopUpdateManifest = {
   version: string;
   fileName: string;
@@ -11,40 +16,81 @@ export type PublicDesktopUpdateDistributionConfig = {
   ossBaseUrl?: string;
 };
 
-export function buildPublicDesktopUpdateManifestUrl(request: Request): string {
-  const configuredBaseUrl = process.env.HELLOCLAW_UPDATE_BASE_URL?.trim();
-  if (configuredBaseUrl) {
-    return new URL(
-      "./manifest.json",
-      configuredBaseUrl.endsWith("/") ? configuredBaseUrl : `${configuredBaseUrl}/`,
-    ).toString();
-  }
+const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_PUBLIC_UPDATE_DIR = path.join(
+  MODULE_DIR,
+  "..",
+  "public",
+  "updates",
+  "desktop",
+  "windows-x64",
+);
+const DEFAULT_PUBLIC_SITE_ORIGIN = "https://helloclaw.top";
 
-  const origin = new URL(request.url).origin;
-  return `${origin}/updates/desktop/windows-x64/manifest.json`;
+function getManifestPath(): string {
+  return process.env.HELLOCLAW_UPDATE_MANIFEST_PATH?.trim()
+    || path.join(DEFAULT_PUBLIC_UPDATE_DIR, "manifest.json");
 }
 
-export function buildPublicDesktopUpdateConfigUrl(request: Request): string {
-  const origin = new URL(request.url).origin;
-  return `${origin}/updates/desktop/windows-x64/distribution.config.json`;
+function getDistributionConfigPath(): string {
+  return process.env.HELLOCLAW_UPDATE_CONFIG_PATH?.trim()
+    || path.join(DEFAULT_PUBLIC_UPDATE_DIR, "distribution.config.json");
 }
 
-export async function readPublicDesktopUpdateDistributionConfig(
-  request: Request,
-): Promise<PublicDesktopUpdateDistributionConfig> {
-  const configUrl = buildPublicDesktopUpdateConfigUrl(request);
+export function getPublicDesktopUpdateDir(): string {
+  return process.env.HELLOCLAW_PUBLIC_UPDATE_DIR?.trim()
+    || DEFAULT_PUBLIC_UPDATE_DIR;
+}
+
+export function getPublicDesktopUpdateFilePath(fileName: string): string {
+  return path.join(getPublicDesktopUpdateDir(), path.basename(fileName));
+}
+
+export async function readPublicDesktopUpdateManifest(): Promise<PublicDesktopUpdateManifest | null> {
+  const manifestPath = getManifestPath();
+
   try {
-    const response = await fetch(configUrl, { cache: "no-store" });
-    if (!response.ok) {
-      return { deliveryMode: "local", ossBaseUrl: "" };
+    const raw = (await readFile(manifestPath, "utf8")).replace(/^\uFEFF/, "");
+    const parsed = JSON.parse(raw) as Partial<PublicDesktopUpdateManifest>;
+
+    if (
+      typeof parsed.version !== "string"
+      || typeof parsed.fileName !== "string"
+      || typeof parsed.sha256 !== "string"
+    ) {
+      return null;
     }
-    const parsed = (await response.json()) as Partial<PublicDesktopUpdateDistributionConfig>;
+
+    return {
+      version: parsed.version.trim(),
+      fileName: parsed.fileName.trim(),
+      sha256: parsed.sha256.trim().toLowerCase(),
+      publishedAt: typeof parsed.publishedAt === "string" ? parsed.publishedAt : undefined,
+      notes: typeof parsed.notes === "string" ? parsed.notes : undefined,
+    };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function readPublicDesktopUpdateDistributionConfig(): Promise<PublicDesktopUpdateDistributionConfig> {
+  const configPath = getDistributionConfigPath();
+
+  try {
+    const raw = (await readFile(configPath, "utf8")).replace(/^\uFEFF/, "");
+    const parsed = JSON.parse(raw) as Partial<PublicDesktopUpdateDistributionConfig>;
     return {
       deliveryMode: parsed.deliveryMode === "oss" ? "oss" : "local",
       ossBaseUrl: typeof parsed.ossBaseUrl === "string" ? parsed.ossBaseUrl.trim() : "",
     };
-  } catch {
-    return { deliveryMode: "local", ossBaseUrl: "" };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return { deliveryMode: "local", ossBaseUrl: "" };
+    }
+    throw error;
   }
 }
 
@@ -57,6 +103,12 @@ export function buildPublicDesktopUpdateDownloadUrl(request: Request, fileName: 
     ).toString();
   }
 
-  const origin = new URL(request.url).origin;
-  return `${origin}/updates/desktop/windows-x64/${encodeURIComponent(fileName)}`;
+  const origin = process.env.HELLOCLAW_PUBLIC_SITE_ORIGIN?.trim()
+    || DEFAULT_PUBLIC_SITE_ORIGIN
+    || new URL(request.url).origin;
+  return `${origin}/api/public/update/file/${encodeURIComponent(fileName)}`;
+}
+
+export function publicDesktopUpdateFileExists(fileName: string): boolean {
+  return existsSync(getPublicDesktopUpdateFilePath(fileName));
 }
