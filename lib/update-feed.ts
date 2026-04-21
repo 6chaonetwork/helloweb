@@ -10,6 +10,7 @@ export type DesktopUpdateManifest = {
   sha256: string;
   publishedAt?: string;
   notes?: string;
+  sizeBytes?: number;
 };
 
 export type DesktopUpdateDistributionConfig = {
@@ -27,6 +28,7 @@ export type DesktopUpdateFileRecord = {
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 
 const DEFAULT_PUBLIC_UPDATE_DIR = path.join(
+  /* turbopackIgnore: true */
   MODULE_DIR,
   "..",
   "public",
@@ -131,6 +133,10 @@ export async function readDesktopUpdateManifest(): Promise<DesktopUpdateManifest
       sha256: normalizeSha256(parsed.sha256),
       publishedAt: typeof parsed.publishedAt === "string" ? parsed.publishedAt : undefined,
       notes: typeof parsed.notes === "string" ? parsed.notes : undefined,
+      sizeBytes:
+        typeof parsed.sizeBytes === "number" && Number.isFinite(parsed.sizeBytes) && parsed.sizeBytes > 0
+          ? parsed.sizeBytes
+          : undefined,
     };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
@@ -178,7 +184,7 @@ export function buildDesktopUpdateDownloadUrl(request: Request, fileName: string
   const origin = process.env.HELLOCLAW_PUBLIC_SITE_ORIGIN?.trim()
     || DEFAULT_PUBLIC_SITE_ORIGIN
     || new URL(request.url).origin;
-  return `${origin}/updates/desktop/windows-x64/${encodeURIComponent(fileName)}`;
+  return `${origin}/api/public/update/file/${encodeURIComponent(fileName)}`;
 }
 
 export async function publishDesktopUpdate(input: {
@@ -220,6 +226,7 @@ export async function publishDesktopUpdate(input: {
     sha256,
     publishedAt: new Date().toISOString(),
     notes: input.notes?.trim() || undefined,
+    sizeBytes: input.fileBuffer.byteLength,
   };
 
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");

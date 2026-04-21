@@ -3,8 +3,8 @@ import { buildCorsPreflightResponse, withCors } from "@/lib/cors";
 import {
   buildPublicDesktopUpdateDownloadUrl,
   readPublicDesktopUpdateDistributionConfig,
+  readPublicDesktopUpdateFileSize,
   readPublicDesktopUpdateManifest,
-  type PublicDesktopUpdateManifest,
 } from "@/lib/update-feed-public";
 
 export function OPTIONS(request: Request) {
@@ -30,6 +30,8 @@ export async function GET(request: Request) {
     );
   }
 
+  const sizeBytes = manifest.sizeBytes ?? await readPublicDesktopUpdateFileSize(manifest.fileName.trim());
+
   return withCors(
     NextResponse.json(
       {
@@ -48,6 +50,7 @@ export async function GET(request: Request) {
             : buildPublicDesktopUpdateDownloadUrl(request, manifest.fileName),
         publishedAt: manifest.publishedAt ?? null,
         notes: manifest.notes ?? null,
+        sizeBytes,
         deliveryMode: distributionConfig.deliveryMode,
       },
       {

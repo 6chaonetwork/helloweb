@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -9,6 +9,7 @@ export type PublicDesktopUpdateManifest = {
   sha256: string;
   publishedAt?: string;
   notes?: string;
+  sizeBytes?: number;
 };
 
 export type PublicDesktopUpdateDistributionConfig = {
@@ -18,6 +19,7 @@ export type PublicDesktopUpdateDistributionConfig = {
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PUBLIC_UPDATE_DIR = path.join(
+  /* turbopackIgnore: true */
   MODULE_DIR,
   "..",
   "public",
@@ -67,7 +69,23 @@ export async function readPublicDesktopUpdateManifest(): Promise<PublicDesktopUp
       sha256: parsed.sha256.trim().toLowerCase(),
       publishedAt: typeof parsed.publishedAt === "string" ? parsed.publishedAt : undefined,
       notes: typeof parsed.notes === "string" ? parsed.notes : undefined,
+      sizeBytes:
+        typeof parsed.sizeBytes === "number" && Number.isFinite(parsed.sizeBytes) && parsed.sizeBytes > 0
+          ? parsed.sizeBytes
+          : undefined,
     };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function readPublicDesktopUpdateFileSize(fileName: string): Promise<number | null> {
+  try {
+    const fileStat = await stat(getPublicDesktopUpdateFilePath(fileName));
+    return fileStat.isFile() ? fileStat.size : null;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return null;

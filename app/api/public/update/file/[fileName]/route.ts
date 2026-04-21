@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { NextResponse } from "next/server";
 import { buildCorsPreflightResponse, withCors } from "@/lib/cors";
 import { getPublicDesktopUpdateFilePath, publicDesktopUpdateFileExists } from "@/lib/update-feed-public";
@@ -22,6 +22,7 @@ export async function GET(
     );
   }
 
+  const fileStat = await stat(filePath);
   const fileBuffer = await readFile(filePath);
   return withCors(
     new NextResponse(fileBuffer, {
@@ -30,6 +31,7 @@ export async function GET(
         "Content-Type": "application/octet-stream",
         "Content-Disposition": `attachment; filename="${encodeURIComponent(fileName)}"`,
         "Cache-Control": "public, max-age=300",
+        "Content-Length": String(fileStat.size),
       },
     }),
     origin,
