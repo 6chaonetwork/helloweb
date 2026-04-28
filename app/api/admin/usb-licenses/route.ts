@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createAuditLog, requireAdmin, requireAdminRole } from "@/lib/admin";
-import {
-  createSignedUsbLicense,
-  createSignedUsbLicensePolicy,
-  normalizeUsbFingerprint,
-} from "@/lib/usb-license";
+import { createSignedUsbLicensePolicy } from "@/lib/usb-license";
+import { issueUsbLicense } from "@/lib/usb-license-service";
+import { getUsbDirectIssuePasswordMeta, setUsbDirectIssuePassword } from "@/lib/usb-license-password";
 
 function parseOptionalIsoDate(value: unknown) {
   if (typeof value !== "string" || !value.trim()) return null;
@@ -51,6 +49,9 @@ export async function GET() {
       revokedLicenses,
       approvedToday,
     },
+    directIssue: {
+      ...getUsbDirectIssuePasswordMeta(),
+    },
     requests,
     licenses,
   });
@@ -64,14 +65,40 @@ export async function POST(request: Request) {
 
   try {
     const body = (await request.json()) as {
-      action?: "approve" | "reject" | "revoke";
+      action?: "approve" | "reject" | "revoke" | "set_password";
       requestId?: string;
       licenseId?: string;
       customerName?: string;
       notes?: string;
       expiresAt?: string;
       reason?: string;
+      password?: string;
     };
+
+    if (body.action === "set_password") {
+      const password = (body.password || "").trim();
+      if (password.length < 4) {
+        return NextResponse.json({ error: "password must be at least 4 characters" }, { status: 400 });
+      }
+
+      const setting = await setUsbDirectIssuePassword(password);
+
+      await createAuditLog({
+        userId: admin.user.id,
+        action: "usb_license_password_updated",
+        targetType: "UsbLicensePassword",
+        targetId: "default",
+        metadataJson: {},
+      });
+
+      return NextResponse.json({
+        success: true,
+        directIssue: {
+          passwordConfigured: true,
+          updatedAt: setting.updatedAt,
+        },
+      });
+    }
 
     if (body.action === "approve") {
       const requestId = (body.requestId || "").trim();
@@ -114,76 +141,23 @@ export async function POST(request: Request) {
       }
 
       const expiresAt = parseOptionalIsoDate(body.expiresAt);
-      const usbFingerprint = normalizeUsbFingerprint(requestRecord.usbFingerprintJson);
-      const signedLicense = createSignedUsbLicense({
-        usbBindingId: requestRecord.usbBindingId,
-        usbFingerprint,
-        customerName: body.customerName ?? requestRecord.customerName,
-        notes: body.notes,
-        expiresAt: expiresAt?.toISOString() ?? null,
-      });
-      const signedPolicy = createSignedUsbLicensePolicy({
-        licenseId: signedLicense.licenseId,
-        usbBindingId: requestRecord.usbBindingId,
-        status: "active",
-      });
-
-      const existingActiveLicenses = await prisma.usbLicense.findMany({
-        where: {
+      const result = await prisma.$transaction((tx) =>
+        issueUsbLicense(tx, {
+          requestId: requestRecord.id,
           usbBindingId: requestRecord.usbBindingId,
-          status: "ACTIVE",
-        },
-      });
-
-      const result = await prisma.$transaction(async (tx) => {
-        for (const existing of existingActiveLicenses) {
-          await tx.usbLicense.update({
-            where: { id: existing.id },
-            data: {
-              status: "REPLACED",
-              signedPolicyJson: createSignedUsbLicensePolicy({
-                licenseId: existing.licenseId,
-                usbBindingId: existing.usbBindingId,
-                status: "replaced",
-                reason: `Replaced by ${signedLicense.licenseId}`,
-              }),
-              policyVersion: existing.policyVersion + 1,
-              revokedReason: `Replaced by ${signedLicense.licenseId}`,
-            },
-          });
-        }
-
-        const licenseRecord = await tx.usbLicense.create({
-          data: {
-            licenseId: signedLicense.licenseId,
-            requestId: requestRecord.id,
-            usbBindingId: requestRecord.usbBindingId,
-            status: "ACTIVE",
-            customerName: signedLicense.customerName || null,
-            notes: signedLicense.notes || null,
-            issuedAt: new Date(signedLicense.issuedAt),
-            expiresAt: signedLicense.expiresAt ? new Date(signedLicense.expiresAt) : null,
-            policyVersion: 1,
-            usbFingerprintJson: usbFingerprint,
-            signedLicenseJson: signedLicense,
-            signedPolicyJson: signedPolicy,
-          },
-        });
-
-        const updatedRequest = await tx.usbLicenseRequest.update({
-          where: { id: requestRecord.id },
-          data: {
-            status: "APPROVED",
-            customerName: signedLicense.customerName || null,
-            approvedAt: new Date(),
-            rejectedAt: null,
-            rejectionReason: null,
-            licenseRecordId: licenseRecord.id,
-          },
-        });
-
-        return { licenseRecord, updatedRequest };
-      });
+          usbFingerprint: requestRecord.usbFingerprintJson,
+          customerName: body.customerName ?? requestRecord.customerName,
+          notes: body.notes,
+          expiresAt,
+          runtimeRootHint: requestRecord.runtimeRootHint,
+          driveLetter: requestRecord.driveLetter,
+          volumeLabel: requestRecord.volumeLabel,
+          friendlyName: requestRecord.friendlyName,
+          devicePlatform: requestRecord.devicePlatform,
+          submitterName: requestRecord.submitterName,
+          applicantNote: requestRecord.applicantNote,
+        }),
+      );
 
       await createAuditLog({
         userId: admin.user.id,
@@ -199,7 +173,8 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        request: result.updatedRequest,
+        duplicated: result.duplicated,
+        request: result.requestRecord,
         license: result.licenseRecord,
       });
     }

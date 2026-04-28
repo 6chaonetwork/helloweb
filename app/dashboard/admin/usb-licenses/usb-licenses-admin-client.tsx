@@ -60,6 +60,10 @@ type UsbLicensesResponse = {
     revokedLicenses: number;
     approvedToday: number;
   };
+  directIssue: {
+    passwordConfigured: boolean;
+    updatedAt: string | null;
+  };
   requests: UsbLicenseRequestItem[];
   licenses: UsbLicenseItem[];
 };
@@ -90,6 +94,7 @@ export function UsbLicensesAdminClient() {
   const [approveTarget, setApproveTarget] = useState<UsbLicenseRequestItem | null>(null);
   const [rejectTarget, setRejectTarget] = useState<UsbLicenseRequestItem | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<UsbLicenseItem | null>(null);
+  const [passwordForm, setPasswordForm] = useState("");
   const [approveForm, setApproveForm] = useState({
     customerName: "",
     notes: "",
@@ -120,7 +125,7 @@ export function UsbLicensesAdminClient() {
     void loadData();
   }, [loadData]);
 
-  async function mutate(action: "approve" | "reject" | "revoke", payload: Record<string, unknown>) {
+  async function mutate(action: "approve" | "reject" | "revoke" | "set_password", payload: Record<string, unknown>) {
     setSaving(true);
     setError(null);
 
@@ -182,6 +187,43 @@ export function UsbLicensesAdminClient() {
         <StatCard label="已停用授权" value={String(data?.stats.revokedLicenses ?? 0)} />
         <StatCard label="今日批准" value={String(data?.stats.approvedToday ?? 0)} />
       </div>
+
+      <Card className="rounded-xl border border-zinc-200 bg-white shadow-sm">
+        <CardHeader>
+          <Badge className="border-zinc-200 bg-zinc-50 text-zinc-500">Direct Issue Password</Badge>
+          <CardTitle className="text-zinc-900">直签密码</CardTitle>
+          <CardDescription className="text-zinc-500">
+            设置后，客服工具输入这个密码即可直接下发授权，不再等待后台手动批准。
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 md:flex-row md:items-end">
+          <div className="flex-1">
+            <div className="mb-2 text-sm text-zinc-500">
+              当前状态：{data?.directIssue.passwordConfigured ? "已配置" : "未配置"}
+              {data?.directIssue.updatedAt ? `，更新时间：${formatDateTime(data.directIssue.updatedAt)}` : ""}
+            </div>
+            <Input
+              value={passwordForm}
+              onChange={(event) => setPasswordForm(event.target.value)}
+              placeholder="输入新的直签密码，至少 4 位"
+              className="border-zinc-200 bg-white text-zinc-900"
+              type="password"
+            />
+          </div>
+          <Button
+            type="button"
+            disabled={saving || passwordForm.trim().length < 4}
+            onClick={() => {
+              void mutate("set_password", { password: passwordForm })
+                .then(() => setPasswordForm(""))
+                .catch(() => {});
+            }}
+            className="bg-claw-red text-white shadow-[0_10px_24px_rgba(230,0,0,0.16)] hover:bg-claw-red/92"
+          >
+            保存直签密码
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card className="rounded-xl border border-zinc-200 bg-white shadow-sm">
         <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
