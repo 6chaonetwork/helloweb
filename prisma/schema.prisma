@@ -50,6 +50,18 @@ enum ChannelEnvironment {
   PROD
 }
 
+enum UsbLicenseRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum UsbLicenseStatus {
+  ACTIVE
+  REVOKED
+  REPLACED
+}
+
 model User {
   id                 String             @id @default(cuid())
   email              String             @unique
@@ -278,4 +290,53 @@ model Admin {
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+}
+
+model UsbLicenseRequest {
+  id                String                  @id @default(cuid())
+  usbBindingId      String
+  usbFingerprintJson Json
+  runtimeRootHint   String?
+  driveLetter       String?
+  volumeLabel       String?
+  friendlyName      String?
+  devicePlatform    String?
+  customerName      String?
+  submitterName     String?
+  applicantNote     String?
+  status            UsbLicenseRequestStatus @default(PENDING)
+  rejectionReason   String?
+  approvedAt        DateTime?
+  rejectedAt        DateTime?
+  lastSubmittedAt   DateTime                @default(now())
+  licenseRecordId   String?                 @unique
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@index([usbBindingId])
+  @@index([status, updatedAt])
+  @@index([lastSubmittedAt])
+}
+
+model UsbLicense {
+  id               String           @id @default(cuid())
+  licenseId        String           @unique
+  requestId        String?          @unique
+  usbBindingId     String
+  status           UsbLicenseStatus @default(ACTIVE)
+  customerName     String?
+  notes            String?
+  issuedAt         DateTime
+  expiresAt        DateTime?
+  revokedAt        DateTime?
+  revokedReason    String?
+  policyVersion    Int              @default(1)
+  usbFingerprintJson Json
+  signedLicenseJson Json
+  signedPolicyJson Json
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([usbBindingId, status])
+  @@index([issuedAt])
 }

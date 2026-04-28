@@ -8,6 +8,7 @@ import {
   Logs,
   Megaphone,
   Shield,
+  ShieldCheck,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -63,6 +64,13 @@ const navGroups: Array<{
         description: "公告管理、Onboarding 配置与站点文案。",
         icon: Megaphone,
         matchers: ["/dashboard/admin/content", "/dashboard/admin/announcements", "/dashboard/admin/onboarding"],
+      },
+      {
+        href: "/dashboard/admin/usb-licenses",
+        label: "U 盘授权",
+        description: "U 盘申请、审批签发与远程停用控制。",
+        icon: ShieldCheck,
+        matchers: ["/dashboard/admin/usb-licenses"],
       },
     ],
   },
