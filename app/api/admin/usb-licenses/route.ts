@@ -84,11 +84,13 @@ export async function POST(request: Request) {
       const setting = await setUsbDirectIssuePassword(password);
 
       await createAuditLog({
-        userId: admin.user.id,
         action: "usb_license_password_updated",
         targetType: "UsbLicensePassword",
         targetId: "default",
-        metadataJson: {},
+        metadataJson: {
+          adminId: admin.user.id,
+          adminUsername: admin.user.username,
+        },
       });
 
       return NextResponse.json({
@@ -160,11 +162,12 @@ export async function POST(request: Request) {
       );
 
       await createAuditLog({
-        userId: admin.user.id,
         action: "usb_license_approved",
         targetType: "UsbLicense",
         targetId: result.licenseRecord.id,
         metadataJson: {
+          adminId: admin.user.id,
+          adminUsername: admin.user.username,
           requestId: requestRecord.id,
           licenseId: result.licenseRecord.licenseId,
           usbBindingId: result.licenseRecord.usbBindingId,
@@ -203,11 +206,12 @@ export async function POST(request: Request) {
       });
 
       await createAuditLog({
-        userId: admin.user.id,
         action: "usb_license_rejected",
         targetType: "UsbLicenseRequest",
         targetId: requestId,
         metadataJson: {
+          adminId: admin.user.id,
+          adminUsername: admin.user.username,
           usbBindingId: requestRecord.usbBindingId,
           reason: updatedRequest.rejectionReason,
         },
@@ -248,11 +252,12 @@ export async function POST(request: Request) {
       });
 
       await createAuditLog({
-        userId: admin.user.id,
         action: "usb_license_revoked",
         targetType: "UsbLicense",
         targetId: updatedLicense.id,
         metadataJson: {
+          adminId: admin.user.id,
+          adminUsername: admin.user.username,
           licenseId: updatedLicense.licenseId,
           usbBindingId: updatedLicense.usbBindingId,
           reason: revokedReason,
