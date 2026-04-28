@@ -86,6 +86,33 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "USB license request not found" }, { status: 404 });
       }
 
+      const existingLicenseByRequest = await prisma.usbLicense.findFirst({
+        where: { requestId: requestRecord.id },
+        orderBy: { createdAt: "desc" },
+      });
+      if (existingLicenseByRequest) {
+        const updatedRequest = requestRecord.status === "APPROVED"
+          ? requestRecord
+          : await prisma.usbLicenseRequest.update({
+              where: { id: requestRecord.id },
+              data: {
+                status: "APPROVED",
+                customerName: existingLicenseByRequest.customerName ?? requestRecord.customerName,
+                approvedAt: requestRecord.approvedAt ?? new Date(),
+                rejectedAt: null,
+                rejectionReason: null,
+                licenseRecordId: existingLicenseByRequest.id,
+              },
+            });
+
+        return NextResponse.json({
+          success: true,
+          duplicated: true,
+          request: updatedRequest,
+          license: existingLicenseByRequest,
+        });
+      }
+
       const expiresAt = parseOptionalIsoDate(body.expiresAt);
       const usbFingerprint = normalizeUsbFingerprint(requestRecord.usbFingerprintJson);
       const signedLicense = createSignedUsbLicense({
