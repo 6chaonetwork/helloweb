@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createAuditLog, requireAdmin, requireAdminRole } from "@/lib/admin";
 import { createSignedUsbLicensePolicy } from "@/lib/usb-license";
@@ -14,13 +15,65 @@ function parseOptionalIsoDate(value: unknown) {
   return date;
 }
 
-export async function GET() {
+function buildRequestWhere(query: string): Prisma.UsbLicenseRequestWhereInput {
+  return {
+    status: "PENDING",
+    ...(query
+      ? {
+          OR: [
+            { usbBindingId: { contains: query, mode: "insensitive" } },
+            { driveLetter: { contains: query, mode: "insensitive" } },
+            { volumeLabel: { contains: query, mode: "insensitive" } },
+            { friendlyName: { contains: query, mode: "insensitive" } },
+            { customerName: { contains: query, mode: "insensitive" } },
+            { submitterName: { contains: query, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
+}
+
+function buildLicenseWhere(query: string): Prisma.UsbLicenseWhereInput {
+  if (!query) {
+    return {};
+  }
+
+  return {
+    OR: [
+      { licenseId: { contains: query, mode: "insensitive" } },
+      { usbBindingId: { contains: query, mode: "insensitive" } },
+      { customerName: { contains: query, mode: "insensitive" } },
+      { notes: { contains: query, mode: "insensitive" } },
+      { revokedReason: { contains: query, mode: "insensitive" } },
+    ],
+  };
+}
+
+export async function GET(request: Request) {
   const admin = await requireAdmin();
   if (!admin.ok) {
     return NextResponse.json({ error: admin.error }, { status: admin.status });
   }
 
-  const [pendingRequests, approvedToday, requests, licenses, activeLicenses, revokedLicenses] = await prisma.$transaction([
+  const { searchParams } = new URL(request.url);
+  const query = (searchParams.get("q") || "").trim();
+  const requestsPage = Math.max(1, Number(searchParams.get("requestsPage") || 1));
+  const licensesPage = Math.max(1, Number(searchParams.get("licensesPage") || 1));
+  const pageSize = Math.min(50, Math.max(5, Number(searchParams.get("pageSize") || 12)));
+
+  const requestWhere = buildRequestWhere(query);
+  const licenseWhere = buildLicenseWhere(query);
+
+  const [
+    pendingRequests,
+    approvedToday,
+    requests,
+    requestsTotal,
+    licenses,
+    licensesTotal,
+    activeLicenses,
+    revokedLicenses,
+  ] = await prisma.$transaction([
     prisma.usbLicenseRequest.count({ where: { status: "PENDING" } }),
     prisma.usbLicense.count({
       where: {
@@ -31,13 +84,19 @@ export async function GET() {
       },
     }),
     prisma.usbLicenseRequest.findMany({
-      orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
-      take: 60,
+      where: requestWhere,
+      orderBy: [{ lastSubmittedAt: "desc" }, { updatedAt: "desc" }],
+      skip: (requestsPage - 1) * pageSize,
+      take: pageSize,
     }),
+    prisma.usbLicenseRequest.count({ where: requestWhere }),
     prisma.usbLicense.findMany({
+      where: licenseWhere,
       orderBy: [{ updatedAt: "desc" }],
-      take: 60,
+      skip: (licensesPage - 1) * pageSize,
+      take: pageSize,
     }),
+    prisma.usbLicense.count({ where: licenseWhere }),
     prisma.usbLicense.count({ where: { status: "ACTIVE" } }),
     prisma.usbLicense.count({ where: { status: "REVOKED" } }),
   ]);
@@ -49,8 +108,20 @@ export async function GET() {
       revokedLicenses,
       approvedToday,
     },
-    directIssue: {
-      ...getUsbDirectIssuePasswordMeta(),
+    directIssue: getUsbDirectIssuePasswordMeta(),
+    query,
+    pagination: {
+      pageSize,
+      requests: {
+        page: requestsPage,
+        total: requestsTotal,
+        totalPages: Math.max(1, Math.ceil(requestsTotal / pageSize)),
+      },
+      licenses: {
+        page: licensesPage,
+        total: licensesTotal,
+        totalPages: Math.max(1, Math.ceil(licensesTotal / pageSize)),
+      },
     },
     requests,
     licenses,
@@ -65,7 +136,7 @@ export async function POST(request: Request) {
 
   try {
     const body = (await request.json()) as {
-      action?: "approve" | "reject" | "revoke" | "set_password";
+      action?: "approve" | "reject" | "revoke" | "set_password" | "reactivate";
       requestId?: string;
       licenseId?: string;
       customerName?: string;
@@ -82,7 +153,6 @@ export async function POST(request: Request) {
       }
 
       const setting = await setUsbDirectIssuePassword(password);
-
       await createAuditLog({
         action: "usb_license_password_updated",
         targetType: "UsbLicensePassword",
@@ -119,6 +189,7 @@ export async function POST(request: Request) {
         where: { requestId: requestRecord.id },
         orderBy: { createdAt: "desc" },
       });
+
       if (existingLicenseByRequest) {
         const updatedRequest = requestRecord.status === "APPROVED"
           ? requestRecord
@@ -261,6 +332,77 @@ export async function POST(request: Request) {
           licenseId: updatedLicense.licenseId,
           usbBindingId: updatedLicense.usbBindingId,
           reason: revokedReason,
+        },
+      });
+
+      return NextResponse.json({ success: true, license: updatedLicense });
+    }
+
+    if (body.action === "reactivate") {
+      const licenseId = (body.licenseId || "").trim();
+      if (!licenseId) {
+        return NextResponse.json({ error: "licenseId is required" }, { status: 400 });
+      }
+
+      const licenseRecord = await prisma.usbLicense.findUnique({
+        where: { licenseId },
+      });
+      if (!licenseRecord) {
+        return NextResponse.json({ error: "USB license not found" }, { status: 404 });
+      }
+
+      const activeSiblings = await prisma.usbLicense.findMany({
+        where: {
+          usbBindingId: licenseRecord.usbBindingId,
+          status: "ACTIVE",
+          id: { not: licenseRecord.id },
+        },
+      });
+
+      const updatedLicense = await prisma.$transaction(async (tx) => {
+        for (const sibling of activeSiblings) {
+          await tx.usbLicense.update({
+            where: { id: sibling.id },
+            data: {
+              status: "REPLACED",
+              revokedReason: `Replaced by reactivated ${licenseRecord.licenseId}`,
+              policyVersion: sibling.policyVersion + 1,
+              signedPolicyJson: createSignedUsbLicensePolicy({
+                licenseId: sibling.licenseId,
+                usbBindingId: sibling.usbBindingId,
+                status: "replaced",
+                reason: `Replaced by reactivated ${licenseRecord.licenseId}`,
+              }),
+            },
+          });
+        }
+
+        return await tx.usbLicense.update({
+          where: { id: licenseRecord.id },
+          data: {
+            status: "ACTIVE",
+            revokedAt: null,
+            revokedReason: null,
+            policyVersion: licenseRecord.policyVersion + 1,
+            signedPolicyJson: createSignedUsbLicensePolicy({
+              licenseId: licenseRecord.licenseId,
+              usbBindingId: licenseRecord.usbBindingId,
+              status: "active",
+              reason: "Reactivated by administrator",
+            }),
+          },
+        });
+      });
+
+      await createAuditLog({
+        action: "usb_license_reactivated",
+        targetType: "UsbLicense",
+        targetId: updatedLicense.id,
+        metadataJson: {
+          adminId: admin.user.id,
+          adminUsername: admin.user.username,
+          licenseId: updatedLicense.licenseId,
+          usbBindingId: updatedLicense.usbBindingId,
         },
       });
 
